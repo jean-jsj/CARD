@@ -1,9 +1,6 @@
 """Unit tests for the Dominick's movement-file loader (metrics.actual_data).
 
-Hermetic: a tiny synthetic wtti.csv fixture in Dominick's raw schema — no real
-download. Covers the documented hygiene (OK/price filters), bundle-price
-arithmetic, promo flag, cost proxy, the 80%-revenue universe rule, and the
-train/held-out split.
+Hermetic: a tiny synthetic wtti.csv fixture in Dominick's raw schema — no real download. Covers the documented hygiene (OK/price filters), bundle-price arithmetic, promo flag, cost proxy, the 80%-revenue universe rule, and the train/held-out split.
 """
 
 from __future__ import annotations
@@ -69,8 +66,7 @@ def test_loader_schema_split_and_universe(tmp_path: Path):
     # 80%-revenue universe: UPC 111 (~72%) + UPC 222 (~27%) stay; 333 is cut.
     assert set(panel["product_id"]) == {"U111", "U222"}
 
-    # Bundle arithmetic: unit price 4.0/2, revenue = unit price * MOVE. The
-    # hygiene rows (OK=0 / price<=0) must not have inflated week-1 units.
+    # Bundle arithmetic: unit price 4.0/2, revenue = unit price * MOVE. The hygiene rows (OK=0 / price<=0) must not have inflated week-1 units.
     week1_111 = panel[(panel["product_id"] == "U111") & (panel["week"] == 1)]
     assert week1_111["price"].iloc[0] == pytest.approx(2.0)
     assert week1_111["units"].iloc[0] == pytest.approx(100.0)
@@ -105,8 +101,7 @@ def test_default_holdout_matches_synthetic_release():
 def test_sparse_tail_anchors_window_end(tmp_path: Path):
     """Thin end-of-feed weeks must not anchor the window (well-covered rule)."""
     path = _write_fixture(tmp_path)
-    # Append two trailing weeks with a single tiny row each (~1/3 of the
-    # 3-row median weekly count -> below the 50% threshold).
+    # Append two trailing weeks with a single tiny row each (~1/3 of the 3-row median weekly count -> below the 50% threshold).
     thin = pd.DataFrame([
         dict(STORE=5, UPC=111, WEEK=41, MOVE=2, QTY=1, PRICE=2.0, SALE="",
              PROFIT=25.0, OK=1),
@@ -133,6 +128,5 @@ def test_price_outlier_row_dropped(tmp_path: Path):
     cell = load_actual_cell(tmp_path, window_weeks=40, holdout_weeks=8)
     p = cell["transactions_full"]
     week10 = p[(p["product_id"] == "U111") & (p["week"] == 10)]
-    # The legit week-10 row survives with its normal price; the 838.16 row is
-    # gone (it would otherwise raise the unit-averaged price far above 2.0).
+    # The legit week-10 row survives with its normal price; the 838.16 row is gone (it would otherwise raise the unit-averaged price far above 2.0).
     assert week10["price"].iloc[0] == pytest.approx(2.0)

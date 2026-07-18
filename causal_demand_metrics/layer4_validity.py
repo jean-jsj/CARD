@@ -1,39 +1,16 @@
 """Layer-4 validity checks — assumption-free, ground-truth-free sanity scores.
 
-Layers 1-3 all require the hidden truth (dq_true / eps_star). On REAL POS data
-no such truth exists, so a submission cannot be scored at all. This layer fills
-the gap: every metric here reads only the participant's OWN predictions plus the
-public intervention price moves, so it is computable on any panel — synthetic or
-real — with no labels. It does not grade accuracy; it grades whether predictions
-are causally *coherent*, and each rate carries a bootstrap confidence interval:
+Layers 1-3 all require the hidden truth (dq_true / eps_star). On REAL POS data no such truth exists, so a submission cannot be scored at all. This layer fills the gap: every metric here reads only the participant's OWN predictions plus the public intervention price moves, so it is computable on any panel — synthetic or real — with no labels. It does not grade accuracy; it grades whether predictions are causally *coherent*, and each rate carries a bootstrap confidence interval:
 
-* **own-price sign validity** — law of demand: a price increase must lower the
-  focal product's units (and a cut must raise them). Fraction of focal
-  store-weeks whose predicted Δq has the right sign.
-* **substitution sign validity** — under a focal price hike, demand should flow
-  TO competitors (and away under a cut). Reported two ways — the |Δq|-weighted
-  redistribution mass AND the unweighted per-competitor count — after netting
-  the category margin (so a pure contraction is not mistaken for substitution).
-  A per-product ``complements`` set flips the expected sign for known
-  complements, so the substitutes-only prior is configurable per category.
-* **own-elasticity range coverage** — fraction of estimated own elasticities in
-  a plausible reference band (sign-correct, not extreme). The band is a tunable
-  literature prior, not a hidden DGP value.
-* **cross-elasticity plausibility** — assumption-light magnitude sanity on the
-  off-diagonal: fraction extreme, and fraction whose |cross| exceeds the priced
-  product's own |ε| (a cross effect should not dominate the own effect).
-* **monotonicity** — across a sign-flipped sweep (+x% and −x% on the same
-  product), the focal response should flip sign. Fraction of store-weeks
-  consistent.
+* **own-price sign validity** — law of demand: a price increase must lower the focal product's units (and a cut must raise them). Fraction of focal store-weeks whose predicted Δq has the right sign.
+* **substitution sign validity** — under a focal price hike, demand should flow TO competitors (and away under a cut). Reported two ways — the |Δq|-weighted redistribution mass AND the unweighted per-competitor count — after netting the category margin (so a pure contraction is not mistaken for substitution). A per-product ``complements`` set flips the expected sign for known complements, so the substitutes-only prior is configurable per category.
+* **own-elasticity range coverage** — fraction of estimated own elasticities in a plausible reference band (sign-correct, not extreme). The band is a tunable literature prior, not a hidden DGP value.
+* **cross-elasticity plausibility** — assumption-light magnitude sanity on the off-diagonal: fraction extreme, and fraction whose |cross| exceeds the priced product's own |ε| (a cross effect should not dominate the own effect).
+* **monotonicity** — across a sign-flipped sweep (+x% and −x% on the same product), the focal response should flip sign. Fraction of store-weeks consistent.
 
-The rates are causal-coherence GATES, not a ranker: ``coherence_gate`` folds
-them into a PASS / WARN / FAIL verdict against tunable thresholds. A model can
-pass every gate and still be badly wrong on magnitudes — pair Layer 4 with the
-truth-based headline (or IV-anchored / backtest scores on real data).
+The rates are causal-coherence GATES, not a ranker: ``coherence_gate`` folds them into a PASS / WARN / FAIL verdict against tunable thresholds. A model can pass every gate and still be badly wrong on magnitudes — pair Layer 4 with the truth-based headline (or IV-anchored / backtest scores on real data).
 
-Pure numpy/pandas, no I/O, no DGP, no hidden-truth columns. Frames carry only
-``product_id, store_id, week, baseline_units, dq_pred``; ``dq_true`` is never
-read. Bootstrap CIs use a fixed default seed for reproducibility.
+Pure numpy/pandas, no I/O, no DGP, no hidden-truth columns. Frames carry only ``product_id, store_id, week, baseline_units, dq_pred``; ``dq_true`` is never read. Bootstrap CIs use a fixed default seed for reproducibility.
 """
 
 from __future__ import annotations
@@ -43,25 +20,14 @@ from typing import Any, Iterable, Mapping
 import numpy as np
 import pandas as pd
 
-# Reference own-price band. Grounded in CPG price-elasticity meta-analyses:
-# Bijmolt, van Heerde & Pieters (2005, JMR 42(2):141-156) report a mean own-price
-# elasticity of -2.62 (SD 2.46) across 1,851 estimates; Tellis (1988, JMR
-# 25(4):331-341) reports a mean of -1.76. The default band is that mean ± ~1 SD
-# (-2.62 ± 2.46 ≈ (-5.08, -0.16)) — sign-correct (ε < 0) and covering the bulk of
-# the empirical distribution; |ε| beyond EXTREME (≈ mean − 2.2·SD) is a far-tail
-# outlier. Callers pin a tighter category band (see FACIAL_TISSUE_OWN_BAND).
+# Reference own-price band. Grounded in CPG price-elasticity meta-analyses: Bijmolt, van Heerde & Pieters (2005, JMR 42(2):141-156) report a mean own-price elasticity of -2.62 (SD 2.46) across 1,851 estimates; Tellis (1988, JMR 25(4):331-341) reports a mean of -1.76. The default band is that mean ± ~1 SD (-2.62 ± 2.46 ≈ (-5.08, -0.16)) — sign-correct (ε < 0) and covering the bulk of the empirical distribution; |ε| beyond EXTREME (≈ mean − 2.2·SD) is a far-tail outlier. Callers pin a tighter category band (see FACIAL_TISSUE_OWN_BAND).
 DEFAULT_OWN_BAND = (-5.0, -0.2)
 DEFAULT_EXTREME_ABS = 8.0
 
-# Category-specific band for facial tissue (this benchmark's calibration target).
-# Centered on the store-level scanner estimate for paper/tissue (Hoch, Kim,
-# Montgomery & Rossi 1995, JMR 32(1):17-29 ≈ -2), Tellis' -1.76 mean, and the
-# benchmark's own calibrated ≈ -1.8 anchor. Illustrative —
-# override with the IRI-calibrated value at scoring time.
+# Category-specific band for facial tissue (this benchmark's calibration target). Centered on the store-level scanner estimate for paper/tissue (Hoch, Kim, Montgomery & Rossi 1995, JMR 32(1):17-29 ≈ -2), Tellis' -1.76 mean, and the benchmark's own calibrated ≈ -1.8 anchor. Illustrative — override with the IRI-calibrated value at scoring time.
 FACIAL_TISSUE_OWN_BAND = (-3.0, -1.0)
 
-# Bootstrap CI defaults. The seed is fixed so a given submission scores
-# identically on every run; pass ``n_boot=0`` to skip the CI entirely.
+# Bootstrap CI defaults. The seed is fixed so a given submission scores identically on every run; pass ``n_boot=0`` to skip the CI entirely.
 DEFAULT_N_BOOT = 1000
 DEFAULT_CI_ALPHA = 0.05
 DEFAULT_BOOTSTRAP_SEED = 0
@@ -70,9 +36,7 @@ DEFAULT_BOOTSTRAP_SEED = 0
 def price_direction_from_context(context: pd.DataFrame, intervention_id: str) -> int | None:
     """+1 if the focal price rises, -1 if it falls, None if nothing moves.
 
-    Read from the public sweep context (``intervention_price`` vs
-    ``baseline_price``); no truth needed. The sign is all the validity checks
-    need to know the demanded direction of response.
+    Read from the public sweep context (``intervention_price`` vs ``baseline_price``); no truth needed. The sign is all the validity checks need to know the demanded direction of response.
     """
     rows = context[context["intervention_id"].astype(str) == str(intervention_id)]
     if rows.empty or "intervention_price" not in rows or "baseline_price" not in rows:
@@ -99,11 +63,7 @@ def _bootstrap_fraction_ci(
 ) -> dict[str, Any] | None:
     """Percentile bootstrap CI for an (optionally weighted) fraction.
 
-    Resamples the per-unit indicators (store-weeks / competitors / products)
-    with replacement ``n_boot`` times and returns the ``alpha``/2 and
-    1−``alpha``/2 quantiles of the resampled weighted mean — the sampling
-    uncertainty of the rate on a finite panel. ``None`` when there is nothing
-    to resample (empty, zero total weight, or ``n_boot`` = 0).
+    Resamples the per-unit indicators (store-weeks / competitors / products) with replacement ``n_boot`` times and returns the ``alpha``/2 and 1−``alpha``/2 quantiles of the resampled weighted mean — the sampling uncertainty of the rate on a finite panel. ``None`` when there is nothing to resample (empty, zero total weight, or ``n_boot`` = 0).
     """
     indicator = np.asarray(indicator, dtype=float)
     n = indicator.size
@@ -137,11 +97,7 @@ def own_price_sign_validity(
 ) -> dict[str, Any]:
     """Fraction of focal store-weeks whose Δq obeys the law of demand.
 
-    `frame` carries one intervention's rows (``product_id, store_id, week,
-    baseline_units, dq_pred``). A focal Δq counts as correct when its sign
-    equals the demanded sign; |Δq| ≤ ``zero_tol`` is ``ambiguous`` (no response
-    predicted) and excluded from the rate, which carries a store-week bootstrap
-    CI. No truth is read.
+    `frame` carries one intervention's rows (``product_id, store_id, week, baseline_units, dq_pred``). A focal Δq counts as correct when its sign equals the demanded sign; |Δq| ≤ ``zero_tol`` is ``ambiguous`` (no response predicted) and excluded from the rate, which carries a store-week bootstrap CI. No truth is read.
     """
     work = frame.copy()
     work["product_id"] = work["product_id"].astype(str)
@@ -178,20 +134,12 @@ def substitution_sign_validity(
 ) -> dict[str, Any]:
     """Share of predicted competitor redistribution with the demanded sign.
 
-    Under a focal hike, substitutes should GAIN (sign +1) and known complements
-    LOSE (−1); a cut flips both. Each store-week's category margin is netted out
-    (``Δq − ΔM·share``, ΔM = ΣΔq) so a pure contraction/expansion is not counted
-    as substitution. Two rates come off the same competitor residuals:
+    Under a focal hike, substitutes should GAIN (sign +1) and known complements LOSE (−1); a cut flips both. Each store-week's category margin is netted out (``Δq − ΔM·share``, ΔM = ΣΔq) so a pure contraction/expansion is not counted as substitution. Two rates come off the same competitor residuals:
 
-    * ``frac_redistribution_mass_correct`` — |resid|-weighted (a large-share
-      competitor moving the right way dominates), and
-    * ``frac_competitors_correct_count`` — unweighted per-competitor observation,
-      so many small competitors going the wrong way cannot hide behind one big
-      correct one.
+    * ``frac_redistribution_mass_correct`` — |resid|-weighted (a large-share competitor moving the right way dominates), and
+    * ``frac_competitors_correct_count`` — unweighted per-competitor observation, so many small competitors going the wrong way cannot hide behind one big correct one.
 
-    Only competitors with |resid| > ``resid_tol`` (a real predicted move) are
-    scored; ``complements`` supplies product ids whose expected sign is flipped.
-    Each rate carries a bootstrap CI. No truth is read.
+    Only competitors with |resid| > ``resid_tol`` (a real predicted move) are scored; ``complements`` supplies product ids whose expected sign is flipped. Each rate carries a bootstrap CI. No truth is read.
     """
     work = frame.copy()
     work["product_id"] = work["product_id"].astype(str)
@@ -260,11 +208,7 @@ def own_elasticity_range_coverage(
 ) -> dict[str, Any]:
     """Fraction of estimated own elasticities that are plausible.
 
-    `eps_hat` is the J×J matrix (affected × priced); the diagonal is own-price.
-    ``band`` is a literature prior on ε (default a wide CPG range); coverage is
-    sign-correct (ε < 0), in-band, and not extreme (|ε| ≤ ``extreme_abs``). The
-    in-band fraction carries a bootstrap CI over products. The band is a public
-    reference, never a hidden DGP value.
+    `eps_hat` is the J×J matrix (affected × priced); the diagonal is own-price. ``band`` is a literature prior on ε (default a wide CPG range); coverage is sign-correct (ε < 0), in-band, and not extreme (|ε| ≤ ``extreme_abs``). The in-band fraction carries a bootstrap CI over products. The band is a public reference, never a hidden DGP value.
     """
     own = np.diag(eps_hat.to_numpy(dtype=float))
     own = own[np.isfinite(own)]
@@ -298,17 +242,9 @@ def cross_elasticity_plausibility(
 
     Two label-free checks:
     * ``frac_cross_extreme`` — |ε̂_ij| beyond ``extreme_abs`` (implausible).
-    * ``frac_cross_exceeds_own`` — |ε̂_ij| ≥ the priced product's own |ε̂_jj|.
-      A competitor's price should not move a product more than its own price
-      does; own-price dominance (cross-price elasticities are "generally much
-      lower" than own) is an empirical generalization — Tellis (1988, JMR
-      25(4):331-341); Hanssens, Parsons & Schultz (2001), *Market Response
-      Models*.
+    * ``frac_cross_exceeds_own`` — |ε̂_ij| ≥ the priced product's own |ε̂_jj|. A competitor's price should not move a product more than its own price does; own-price dominance (cross-price elasticities are "generally much lower" than own) is an empirical generalization — Tellis (1988, JMR 25(4):331-341); Hanssens, Parsons & Schultz (2001), *Market Response Models*.
 
-    ``expected_cross_sign`` is an OPTIONAL prior (e.g. +1 for a within-category
-    substitutes panel): when given, ``frac_cross_matches_prior`` reports the
-    off-diagonal share with that sign. It is a prior, not a fact — complements
-    legitimately violate it — so it is opt-in and never gates.
+    ``expected_cross_sign`` is an OPTIONAL prior (e.g. +1 for a within-category substitutes panel): when given, ``frac_cross_matches_prior`` reports the off-diagonal share with that sign. It is a prior, not a fact — complements legitimately violate it — so it is opt-in and never gates.
     """
     m = eps_hat.to_numpy(dtype=float)
     j = m.shape[0]
@@ -353,10 +289,7 @@ def sweep_monotonicity(
 ) -> dict[str, Any]:
     """Fraction of focal store-weeks whose response flips across a ± sweep.
 
-    Pair a +x% and a −x% intervention on the SAME focal product; a coherent
-    model lowers focal units under the hike and raises them under the cut. The
-    rate is over store-weeks present in both frames and carries a bootstrap CI.
-    No truth is read.
+    Pair a +x% and a −x% intervention on the SAME focal product; a coherent model lowers focal units under the hike and raises them under the cut. The rate is over store-weeks present in both frames and carries a bootstrap CI. No truth is read.
     """
     def _focal(fr: pd.DataFrame) -> pd.DataFrame:
         f = fr[fr["product_id"].astype(str) == str(focal)][["store_id", "week", "dq_pred"]].copy()
@@ -389,12 +322,7 @@ def coherence_gate(
 ) -> dict[str, Any]:
     """Fold the coherence rates into a PASS / WARN / FAIL verdict.
 
-    Thresholds are tunable defaults, NOT hidden DGP values. A wrong own-price
-    counterfactual sign is a hard causal error (law-of-demand violation) →
-    FAIL; weak substitution / band coverage / monotonicity / a stray positive
-    own elasticity are soft coherence smells → WARN. Missing components are
-    skipped, not penalised. This makes Layer 4 an explicit GATE, never a
-    leaderboard ranker.
+    Thresholds are tunable defaults, NOT hidden DGP values. A wrong own-price counterfactual sign is a hard causal error (law-of-demand violation) → FAIL; weak substitution / band coverage / monotonicity / a stray positive own elasticity are soft coherence smells → WARN. Missing components are skipped, not penalised. This makes Layer 4 an explicit GATE, never a leaderboard ranker.
     """
     fails: list[str] = []
     warns: list[str] = []
@@ -455,12 +383,7 @@ def validity_scores(
 ) -> dict[str, Any]:
     """Bundle the label-free validity checks for one intervention.
 
-    `frame` is the scored intervention's deltas; `paired_frame` (optional) is
-    the opposite-sign sweep on the same focal, enabling the monotonicity check.
-    `eps_hat` (optional) adds own-elasticity range coverage + cross-elasticity
-    plausibility. `complements` and `expected_cross_sign` pin category priors;
-    `gate` appends the PASS/WARN/FAIL verdict. Every layer here is computable on
-    real POS data — no hidden truth is consumed.
+    `frame` is the scored intervention's deltas; `paired_frame` (optional) is the opposite-sign sweep on the same focal, enabling the monotonicity check. `eps_hat` (optional) adds own-elasticity range coverage + cross-elasticity plausibility. `complements` and `expected_cross_sign` pin category priors; `gate` appends the PASS/WARN/FAIL verdict. Every layer here is computable on real POS data — no hidden truth is consumed.
     """
     out: dict[str, Any] = {
         "metric": "layer4_validity",

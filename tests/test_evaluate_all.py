@@ -1,8 +1,6 @@
 """Unit tests for the metrics.evaluate_all multi-cell wrapper.
 
-Discovery, slug-matching, eval-cell/missing-submission skips, and per-cell
-error isolation. Real-cell scoring goes through `evaluate` (tested against
-generated cells in the verification runs), so it is stubbed here.
+Discovery, slug-matching, eval-cell/missing-submission skips, and per-cell error isolation. Real-cell scoring goes through `evaluate` (tested against generated cells in the verification runs), so it is stubbed here.
 """
 
 from __future__ import annotations

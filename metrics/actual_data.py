@@ -1,67 +1,29 @@
 """Actual-data cell adapter — the Dominick's (Kilts Center) real-POS input.
 
-The **actual-data arm** (Layer 1 + Layer 4 on real point-of-sale data). Layers 2
-and 3 need hidden counterfactual truth, so they stay synthetic-only; **Layer 1**
-(forecast vs. observed sales) and **Layer 4** (label-free coherence) are
-computable on REAL data.
+The **actual-data arm** (Layer 1 + Layer 4 on real point-of-sale data). Layers 2 and 3 need hidden counterfactual truth, so they stay synthetic-only; **Layer 1** (forecast vs. observed sales) and **Layer 4** (label-free coherence) are computable on REAL data.
 
-The real panel is the **Dominick's Finer Foods scanner dataset** published by
-the James M. Kilts Center for Marketing, University of Chicago Booth School of
-Business (https://www.chicagobooth.edu/research/kilts/research-data/dominicks):
-weekly store x UPC movement for ~100 Chicago-area stores, 1989-1997. The data
-are free for academic research (attribution to the Kilts Center required) and
-are NOT redistributed with this benchmark — download the category files from
-the Kilts Center and point ``data_root`` at them; this loader is deterministic,
-so every participant reconstructs the identical panel.
+The real panel is the **Dominick's Finer Foods scanner dataset** published by the James M. Kilts Center for Marketing, University of Chicago Booth School of Business (https://www.chicagobooth.edu/research/kilts/research-data/dominicks): weekly store x UPC movement for ~100 Chicago-area stores, 1989-1997. The data are free for academic research (attribution to the Kilts Center required) and are NOT redistributed with this benchmark — download the category files from the Kilts Center and point ``data_root`` at them; this loader is deterministic, so every participant reconstructs the identical panel.
 
-Default category: **Bathroom Tissues** (``tti``) — the closest real analog to
-the synthetic facial-tissue category (storable paper product, heavy
-promotion, branded + private-label substitution).
+Default category: **Bathroom Tissues** (``tti``) — the closest real analog to the synthetic facial-tissue category (storable paper product, heavy promotion, branded + private-label substitution).
 
 Expected files under ``data_root`` (the Kilts CSV export for one category):
 
-* ``wtti.csv`` — movement file: ``STORE, UPC, WEEK, MOVE, QTY, PRICE, SALE,
-  PROFIT, OK`` (case-insensitive). ``MOVE`` is individual units sold; ``PRICE``
-  is the bundle price for ``QTY`` units, so unit price = ``PRICE/QTY`` and
-  revenue = ``PRICE*MOVE/QTY``; ``SALE`` is the deal code (B/C/S, blank = no
-  deal); ``PROFIT`` is the gross-margin %, so the wholesale-cost proxy =
-  ``unit_price*(1-PROFIT/100)``; rows with ``OK == 0`` or non-positive price
-  are dropped (standard Dominick's hygiene).
-* ``upctti.csv`` — optional UPC file (descriptions/sizes); used only to attach
-  a product description when present.
+* ``wtti.csv`` — movement file: ``STORE, UPC, WEEK, MOVE, QTY, PRICE, SALE, PROFIT, OK`` (case-insensitive). ``MOVE`` is individual units sold; ``PRICE`` is the bundle price for ``QTY`` units, so unit price = ``PRICE/QTY`` and revenue = ``PRICE*MOVE/QTY``; ``SALE`` is the deal code (B/C/S, blank = no deal); ``PROFIT`` is the gross-margin %, so the wholesale-cost proxy = ``unit_price*(1-PROFIT/100)``; rows with ``OK == 0`` or non-positive price are dropped (standard Dominick's hygiene).
+* ``upctti.csv`` — optional UPC file (descriptions/sizes); used only to attach a product description when present.
 
-The panel is mapped onto the synthetic public-schema columns
-(``product_id, store_id, week, units, dollars, price, promo_flag,
-supply_cost_proxy``), the product universe is the smallest top-revenue UPC set
-covering ``UNIVERSE_REVENUE_SHARE`` of training-window revenue (mirroring the
-synthetic 80%-revenue SKU rule), and the train/held-out split is IDENTICAL to
-the synthetic cells (``eval_weeks`` = last ``holdout_weeks`` of the window).
+The panel is mapped onto the synthetic public-schema columns (``product_id, store_id, week, units, dollars, price, promo_flag, supply_cost_proxy``), the product universe is the smallest top-revenue UPC set covering ``UNIVERSE_REVENUE_SHARE`` of training-window revenue (mirroring the synthetic 80%-revenue SKU rule), and the train/held-out split is IDENTICAL to the synthetic cells (``eval_weeks`` = last ``holdout_weeks`` of the window).
 
-Because the Dominick's files are public, the actual-arm Layer-1 "withheld"
-sales are public too — actual-arm Layer 1 is an honor-system diagnostic, not
-an adversarially-hidden target (the synthetic arm carries the hidden-truth
-scoring).
+Because the Dominick's files are public, the actual-arm Layer-1 "withheld" sales are public too — actual-arm Layer 1 is an honor-system diagnostic, not an adversarially-hidden target (the synthetic arm carries the hidden-truth scoring).
 
-Verified against the real bathroom-tissue feed (weeks 1-399, 93 stores,
-128 UPCs): the default cell is the most recent 156-week window (244-399;
-142 observed weeks — the chain has four known whole-feed gap stretches),
-35-UPC universe, ~312k rows, promo rate ~16%, median cost/price ~0.83. The
-week-coverage anchor and the price-outlier guard below exist because of two
-measured artifacts: end-of-feed thinning (not present in this category, but
-guarded) and one isolated 650x-median price recording error.
+Verified against the real bathroom-tissue feed (weeks 1-399, 93 stores, 128 UPCs): the default cell is the most recent 156-week window (244-399; 142 observed weeks — the chain has four known whole-feed gap stretches), 35-UPC universe, ~312k rows, promo rate ~16%, median cost/price ~0.83. The week-coverage anchor and the price-outlier guard below exist because of two measured artifacts: end-of-feed thinning (not present in this category, but guarded) and one isolated 650x-median price recording error.
 
 Cell-dict contract mirrored from ``metrics.evaluate_submission._load_cell``::
 
     {cfg, family, transactions_full, training, eval_weeks}
 
-plus ``data_arm = "actual"`` (this module is the sole author of that value)
-and ``sweep_context`` — the PUBLIC own-price sweep intervention table the
-participant's ``layer4_actual`` predicted-dq file is scored against. No hidden
-truth of any kind is attached — Layer 4 is label-free.
+plus ``data_arm = "actual"`` (this module is the sole author of that value) and ``sweep_context`` — the PUBLIC own-price sweep intervention table the participant's ``layer4_actual`` predicted-dq file is scored against. No hidden truth of any kind is attached — Layer 4 is label-free.
 
-:func:`build_fixture_actual_cell` DERIVES a valid actual-arm cell from an
-existing synthetic dev cell (strips the hidden truth), so the actual-arm path
-can be exercised without the real data.
+:func:`build_fixture_actual_cell` DERIVES a valid actual-arm cell from an existing synthetic dev cell (strips the hidden truth), so the actual-arm path can be exercised without the real data.
 """
 
 from __future__ import annotations
@@ -75,53 +37,34 @@ import pandas as pd
 # Constants
 # ---------------------------------------------------------------------------
 
-#: Marker value tagging a cell dict as belonging to the actual-data arm.
-#: Routing branches on ``cell["data_arm"] == ACTUAL_ARM``; this module is its
-#: sole author.
+#: Marker value tagging a cell dict as belonging to the actual-data arm. Routing branches on ``cell["data_arm"] == ACTUAL_ARM``; this module is its sole author.
 ACTUAL_ARM = "actual"
 
-#: Default contiguous window: ~3 yr, matched to the synthetic panel. NOT the
-#: full Dominick's span — that is an OPTIONAL robustness override
-#: (window_weeks=FULL_SPAN_WINDOW_WEEKS), never the default.
+#: Default contiguous window: ~3 yr, matched to the synthetic panel. NOT the full Dominick's span — that is an OPTIONAL robustness override (window_weeks=FULL_SPAN_WINDOW_WEEKS), never the default.
 DEFAULT_WINDOW_WEEKS = 156
 
-#: Full-span robustness override (documented non-default): 7 years of the
-#: Dominick's feed.
+#: Full-span robustness override (documented non-default): 7 years of the Dominick's feed.
 FULL_SPAN_WINDOW_WEEKS = 364
 
-#: Default Dominick's category: Bathroom Tissues (movement file ``wtti.csv``,
-#: UPC file ``upctti.csv``) — the closest real analog to the synthetic
-#: facial-tissue category.
+#: Default Dominick's category: Bathroom Tissues (movement file ``wtti.csv``, UPC file ``upctti.csv``) — the closest real analog to the synthetic facial-tissue category.
 DEFAULT_CATEGORY = "tti"
 
-#: Product-universe rule: smallest set of top-revenue UPCs covering this share
-#: of training-window revenue — mirrors the synthetic 80%-revenue SKU rule.
+#: Product-universe rule: smallest set of top-revenue UPCs covering this share of training-window revenue — mirrors the synthetic 80%-revenue SKU rule.
 UNIVERSE_REVENUE_SHARE = 0.80
 
-#: Well-covered-week rule for the default window anchor: the window ends at
-#: the LAST week whose post-hygiene row count is >= this fraction of the
-#: median weekly row count (guards the eval split against a sparse
-#: end-of-feed tail).
+#: Well-covered-week rule for the default window anchor: the window ends at the LAST week whose post-hygiene row count is >= this fraction of the median weekly row count (guards the eval split against a sparse end-of-feed tail).
 WELL_COVERED_FRACTION = 0.5
 
-#: Price-outlier guard: drop rows whose unit price exceeds this multiple of
-#: the product's median unit price. Catches isolated recording errors (the
-#: bathroom-tissue feed has one row at 650x the product median) while never
-#: touching legitimate promo/pack variation.
+#: Price-outlier guard: drop rows whose unit price exceeds this multiple of the product's median unit price. Catches isolated recording errors (the bathroom-tissue feed has one row at 650x the product median) while never touching legitimate promo/pack variation.
 PRICE_OUTLIER_FOLD = 10.0
 
-#: Held-out eval-window length (weeks). Matches the released synthetic cells'
-#: ``counterfactual_eval_weeks`` (16 in the released config).
+#: Held-out eval-window length (weeks). Matches the released synthetic cells' ``counterfactual_eval_weeks`` (16 in the released config).
 DEFAULT_HOLDOUT_WEEKS = 16
 
-#: Own-price-sweep magnitude (both signs). ±10% mirrors the synthetic flagship
-#: ±X% headline scenario.
+#: Own-price-sweep magnitude (both signs). ±10% mirrors the synthetic flagship ±X% headline scenario.
 FIXTURE_SWEEP_PCT = 0.10
 
-#: Exact column contract for ``sweep_context``. This is the public
-#: own-price-sweep table the ``layer4_actual`` file is scored against; note
-#: ``baseline_units`` (needed to net dq) rather than the raw public CSV's
-#: ``promo_cost``.
+#: Exact column contract for ``sweep_context``. This is the public own-price-sweep table the ``layer4_actual`` file is scored against; note ``baseline_units`` (needed to net dq) rather than the raw public CSV's ``promo_cost``.
 SWEEP_CONTEXT_COLUMNS = [
     "intervention_id",
     "product_id",
@@ -136,10 +79,7 @@ SWEEP_CONTEXT_COLUMNS = [
 class ActualDataNotAvailable(FileNotFoundError):
     """Raised when the Dominick's category files are not present at ``data_root``.
 
-    Subclasses :class:`FileNotFoundError` so existing ``except FileNotFoundError``
-    handlers still catch it, while callers that want the specific "real data not
-    downloaded yet" case can catch this narrower type. Carries an actionable
-    message naming what to point ``data_root`` at.
+    Subclasses :class:`FileNotFoundError` so existing ``except FileNotFoundError`` handlers still catch it, while callers that want the specific "real data not downloaded yet" case can catch this narrower type. Carries an actionable message naming what to point ``data_root`` at.
     """
 
 
@@ -158,20 +98,9 @@ def load_actual_cell(
 ) -> dict[str, Any]:
     """Load ONE actual-data cell from the Dominick's category files at ``data_root``.
 
-    Reads ``w<category>.csv`` (movement) — download it from the Kilts Center —
-    applies the standard Dominick's hygiene (drop ``OK == 0``, non-positive
-    price), maps to the synthetic public-panel schema, restricts to the
-    top-revenue universe (:data:`UNIVERSE_REVENUE_SHARE` of training-window
-    revenue), takes the contiguous ``window_weeks`` window ending at
-    ``window_end`` (default: latest week in the source), and applies the
-    IDENTICAL split rule as the synthetic cells: ``eval_weeks`` = last
-    ``holdout_weeks`` weeks of the window; ``training`` = the rest. Layer 1
-    fits on ``training``, forecasts ``eval_weeks``; Layer 4 places the
-    ``sweep_context`` interventions OVER the ``eval_weeks`` store-weeks (same
-    placement as the synthetic Layer-3 sweep).
+    Reads ``w<category>.csv`` (movement) — download it from the Kilts Center — applies the standard Dominick's hygiene (drop ``OK == 0``, non-positive price), maps to the synthetic public-panel schema, restricts to the top-revenue universe (:data:`UNIVERSE_REVENUE_SHARE` of training-window revenue), takes the contiguous ``window_weeks`` window ending at ``window_end`` (default: latest week in the source), and applies the IDENTICAL split rule as the synthetic cells: ``eval_weeks`` = last ``holdout_weeks`` weeks of the window; ``training`` = the rest. Layer 1 fits on ``training``, forecasts ``eval_weeks``; Layer 4 places the ``sweep_context`` interventions OVER the ``eval_weeks`` store-weeks (same placement as the synthetic Layer-3 sweep).
 
-    Returns the cell dict: ``{cfg, family="actual", transactions_full,
-    training, eval_weeks, data_arm="actual", sweep_context}``.
+    Returns the cell dict: ``{cfg, family="actual", transactions_full, training, eval_weeks, data_arm="actual", sweep_context}``.
 
     Raises
     ------
@@ -193,13 +122,7 @@ def load_actual_cell(
 
     panel = _load_movement(movement_path)
 
-    # Contiguous window, anchored at the last WELL-COVERED week: an
-    # end-of-feed tail can be sparse, and "latest week" would then anchor the
-    # window (and the held-out eval weeks) on unreliable data. Default
-    # ``window_end`` = the last week whose post-hygiene row count is at least
-    # ``WELL_COVERED_FRACTION`` of the median weekly row count. (On the
-    # bathroom-tissue feed this is the literal last week — coverage is flat to
-    # the end — so the guard only bites on genuinely thin tails.)
+    # Contiguous window, anchored at the last WELL-COVERED week: an end-of-feed tail can be sparse, and "latest week" would then anchor the window (and the held-out eval weeks) on unreliable data. Default ``window_end`` = the last week whose post-hygiene row count is at least ``WELL_COVERED_FRACTION`` of the median weekly row count. (On the bathroom-tissue feed this is the literal last week — coverage is flat to the end — so the guard only bites on genuinely thin tails.)
     max_week = (
         _last_well_covered_week(panel) if window_end is None else int(window_end)
     )
@@ -215,8 +138,7 @@ def load_actual_cell(
     eval_weeks = weeks[-int(holdout_weeks) :]
     training_mask = ~panel["week"].isin(set(eval_weeks))
 
-    # Product universe: top-revenue UPCs covering UNIVERSE_REVENUE_SHARE of
-    # TRAINING-window revenue (selection never reads the held-out weeks).
+    # Product universe: top-revenue UPCs covering UNIVERSE_REVENUE_SHARE of TRAINING-window revenue (selection never reads the held-out weeks).
     revenue = (
         panel[training_mask].groupby("product_id")["dollars"].sum().sort_values(ascending=False)
     )
@@ -253,9 +175,7 @@ def load_actual_cell(
 def _last_well_covered_week(panel: pd.DataFrame) -> int:
     """Last week whose row count >= WELL_COVERED_FRACTION x median weekly rows.
 
-    Deterministic sparse-tail guard for the default window anchor. If every
-    trailing week is thin (degenerate input), falls back to the overall last
-    week rather than failing.
+    Deterministic sparse-tail guard for the default window anchor. If every trailing week is thin (degenerate input), falls back to the overall last week rather than failing.
     """
     weekly_rows = panel.groupby("week").size().sort_index()
     threshold = WELL_COVERED_FRACTION * float(weekly_rows.median())
@@ -282,11 +202,7 @@ def _movement_path(data_root: Path, category: str) -> Path | None:
 def _load_movement(movement_path: Path) -> pd.DataFrame:
     """Read one Dominick's movement CSV into the synthetic public-panel schema.
 
-    Standard hygiene: drop ``OK == 0`` and non-positive prices; unit price =
-    ``PRICE/QTY``; revenue = ``PRICE*MOVE/QTY``; ``promo_flag`` = 1 iff the
-    ``SALE`` deal code is non-blank; ``supply_cost_proxy`` = wholesale cost
-    from the gross margin (``unit_price*(1-PROFIT/100)``). Rows are summed over
-    duplicate (product, store, week) keys (price-line splits).
+    Standard hygiene: drop ``OK == 0`` and non-positive prices; unit price = ``PRICE/QTY``; revenue = ``PRICE*MOVE/QTY``; ``promo_flag`` = 1 iff the ``SALE`` deal code is non-blank; ``supply_cost_proxy`` = wholesale cost from the gross margin (``unit_price*(1-PROFIT/100)``). Rows are summed over duplicate (product, store, week) keys (price-line splits).
     """
     raw = pd.read_csv(movement_path)
     raw.columns = [str(c).strip().lower() for c in raw.columns]
@@ -305,9 +221,7 @@ def _load_movement(movement_path: Path) -> pd.DataFrame:
     unit_price = raw["price"] / raw["qty"]
     frame = pd.DataFrame(
         {
-            # "U"-prefixed so ids stay strings through submission-CSV round trips
-            # (bare numeric UPCs would be re-read as int64 and break scoring
-            # merges; synthetic ids are alphanumeric for the same reason).
+            # "U"-prefixed so ids stay strings through submission-CSV round trips (bare numeric UPCs would be re-read as int64 and break scoring merges; synthetic ids are alphanumeric for the same reason).
             "product_id": "U" + raw["upc"].astype("int64").astype(str),
             "store_id": "S" + raw["store"].astype("int64").astype(str).str.zfill(3),
             "week": raw["week"].astype(int),
@@ -319,15 +233,11 @@ def _load_movement(movement_path: Path) -> pd.DataFrame:
         }
     )
 
-    # Price-outlier guard: isolated recording errors (unit price many-fold the
-    # product's level) would poison the price series and the Layer-4 sweep
-    # baselines. Deterministic rule: drop rows above PRICE_OUTLIER_FOLD x the
-    # product's median unit price.
+    # Price-outlier guard: isolated recording errors (unit price many-fold the product's level) would poison the price series and the Layer-4 sweep baselines. Deterministic rule: drop rows above PRICE_OUTLIER_FOLD x the product's median unit price.
     med_price = frame.groupby("product_id")["price"].transform("median")
     frame = frame[frame["price"] <= PRICE_OUTLIER_FOLD * med_price]
 
-    # Duplicate (product, store, week) rows (price-line splits): sum the mass,
-    # unit-average the per-unit columns.
+    # Duplicate (product, store, week) rows (price-line splits): sum the mass, unit-average the per-unit columns.
     grouped = frame.groupby(["product_id", "store_id", "week"], as_index=False).agg(
         units=("units", "sum"),
         dollars=("dollars", "sum"),
@@ -361,10 +271,7 @@ def _cost_proxy(raw: pd.DataFrame, unit_price: pd.Series) -> pd.Series:
 def build_fixture_actual_cell(synthetic_cell_dir: Path) -> dict[str, Any]:
     """Derive a VALID actual-arm cell from an EXISTING synthetic dev cell.
 
-    Lets the actual-arm path (routing + integration tests) run WITHOUT the real
-    data. Reuses ``_load_cell`` for the public panel, strips any hidden truth
-    (the fixture keeps only the public/observed panel), tags the cell as the
-    actual arm, and synthesizes ``sweep_context``.
+    Lets the actual-arm path (routing + integration tests) run WITHOUT the real data. Reuses ``_load_cell`` for the public panel, strips any hidden truth (the fixture keeps only the public/observed panel), tags the cell as the actual arm, and synthesizes ``sweep_context``.
 
     Parameters
     ----------
@@ -374,25 +281,15 @@ def build_fixture_actual_cell(synthetic_cell_dir: Path) -> dict[str, Any]:
     Returns
     -------
     dict
-        Keys ``{cfg, family, transactions_full, training, eval_weeks, data_arm,
-        sweep_context}`` with ``family == "actual"`` and ``data_arm == "actual"``.
-        ``sweep_context`` is the full own-price sweep: one intervention per
-        product, BOTH signs, anchored on the ``eval_weeks`` store-weeks, columns
-        exactly :data:`SWEEP_CONTEXT_COLUMNS`. No elasticity file is produced or
-        expected (own-elasticity band is derived from dq downstream). No hidden
-        truth is attached — Layer 4 is label-free.
+        Keys ``{cfg, family, transactions_full, training, eval_weeks, data_arm, sweep_context}`` with ``family == "actual"`` and ``data_arm == "actual"``. ``sweep_context`` is the full own-price sweep: one intervention per product, BOTH signs, anchored on the ``eval_weeks`` store-weeks, columns exactly :data:`SWEEP_CONTEXT_COLUMNS`. No elasticity file is produced or expected (own-elasticity band is derived from dq downstream). No hidden truth is attached — Layer 4 is label-free.
     """
-    # Import here (read-only) to avoid a hard module-load coupling and any import
-    # side effects at `import metrics.actual_data` time.
+    # Import here (read-only) to avoid a hard module-load coupling and any import side effects at `import metrics.actual_data` time.
     from metrics.evaluate_submission import _load_cell
 
     synthetic_cell_dir = Path(synthetic_cell_dir)
     cell = _load_cell(synthetic_cell_dir)
 
-    # Strip hidden truth: _load_cell already returns only the public-shaped five
-    # keys (no hidden/ truth object leaks into the dict); the observed panel it
-    # carries IS the public/observed panel for the actual arm. We keep exactly
-    # those, then overlay the actual-arm markers.
+    # Strip hidden truth: _load_cell already returns only the public-shaped five keys (no hidden/ truth object leaks into the dict); the observed panel it carries IS the public/observed panel for the actual arm. We keep exactly those, then overlay the actual-arm markers.
     transactions_full = cell["transactions_full"]
     training = cell["training"]
     eval_weeks = [int(w) for w in cell["eval_weeks"]]
@@ -422,20 +319,14 @@ def _synthesize_sweep_context(
 ) -> pd.DataFrame:
     """Build the public own-price sweep table from the observed panel + products.
 
-    Full own-price sweep: ONE intervention per product, moved ONCE, BOTH signs
-    (+X% and −X%), so Layer-4 monotonicity pairs exist and the derived
-    own-elasticity band covers every product. Interventions are anchored on the
-    ``eval_weeks`` store-weeks (the held-out tail) — the SAME placement as the
-    synthetic Layer-3 sweep, keeping the arm leak-free and structurally identical.
+    Full own-price sweep: ONE intervention per product, moved ONCE, BOTH signs (+X% and −X%), so Layer-4 monotonicity pairs exist and the derived own-elasticity band covers every product. Interventions are anchored on the ``eval_weeks`` store-weeks (the held-out tail) — the SAME placement as the synthetic Layer-3 sweep, keeping the arm leak-free and structurally identical.
     """
     products = _load_public_products(synthetic_cell_dir, transactions_full)
 
     eval_set = set(int(w) for w in eval_weeks)
     panel = transactions_full[transactions_full["week"].isin(eval_set)]
 
-    # Observed baseline price + units per (product, store, week) on the held-out
-    # tail. If the panel is empty (degenerate fixture), fall back to the full
-    # panel restricted to nothing — the loop below simply yields no rows.
+    # Observed baseline price + units per (product, store, week) on the held-out tail. If the panel is empty (degenerate fixture), fall back to the full panel restricted to nothing — the loop below simply yields no rows.
     price_col = "price" if "price" in panel.columns else None
     units_col = "units" if "units" in panel.columns else None
 
@@ -474,10 +365,7 @@ def _load_public_products(
 ) -> list[str]:
     """Product universe for the sweep — public products file, else the panel.
 
-    Prefers ``public/products_public.csv`` (columns include ``product_id``); if
-    it is absent (or no synthetic cell dir applies, as on the real Dominick's
-    panel), falls back to the distinct products observed in the panel. Order is
-    stable (sorted) for a deterministic sweep.
+    Prefers ``public/products_public.csv`` (columns include ``product_id``); if it is absent (or no synthetic cell dir applies, as on the real Dominick's panel), falls back to the distinct products observed in the panel. Order is stable (sorted) for a deterministic sweep.
     """
     if synthetic_cell_dir is not None:
         products_path = Path(synthetic_cell_dir) / "public" / "products_public.csv"

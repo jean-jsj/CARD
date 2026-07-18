@@ -1,24 +1,12 @@
 """Layer 1 demand-prediction metrics.
 
-Revenue-weighted WMAPE (accuracy) and WMPE (bias) on demand forecasts under
-the observed pricing policy, over the chronological holdout window (the last
-`counterfactual_eval_weeks` weeks).
+Revenue-weighted WMAPE (accuracy) and WMPE (bias) on demand forecasts under the observed pricing policy, over the chronological holdout window (the last `counterfactual_eval_weeks` weeks).
 
 Conventions:
 
-* **Truth object = OBSERVED holdout sales** (the conventional, M5-style
-  forecasting target). The holdout weeks' units/dollars are withheld from the
-  public transactions file and live in
-  `hidden/transactions_full_hidden.csv`; participants receive the holdout
-  weeks' prices/promo flags as `public/transactions_holdout_context_public.csv`
-  (the conditional-forecasting inputs). Scoring against observed counts
-  carries an irreducible observation-noise floor shared by all models.
-* **Aggregation** — the formulas index products only; errors are summed
-  within product over (store, week) and revenue-weighted across products:
-  `WMAPE = Σ_i w_i Σ_st |q̂−q*| / Σ_i w_i Σ_st |q*|`.
-* **Weights** — `w_i` = the product's share of observed public revenue over
-  the TRAINING window (the holdout window's revenue is hidden, so training-
-  window weights keep w_i participant-reproducible).
+* **Truth object = OBSERVED holdout sales** (the conventional, M5-style forecasting target). The holdout weeks' units/dollars are withheld from the public transactions file and live in `hidden/transactions_full_hidden.csv`; participants receive the holdout weeks' prices/promo flags as `public/transactions_holdout_context_public.csv` (the conditional-forecasting inputs). Scoring against observed counts carries an irreducible observation-noise floor shared by all models.
+* **Aggregation** — the formulas index products only; errors are summed within product over (store, week) and revenue-weighted across products: `WMAPE = Σ_i w_i Σ_st |q̂−q*| / Σ_i w_i Σ_st |q*|`.
+* **Weights** — `w_i` = the product's share of observed public revenue over the TRAINING window (the holdout window's revenue is hidden, so training- window weights keep w_i participant-reproducible).
 """
 
 from __future__ import annotations
@@ -34,8 +22,7 @@ KEY_COLUMNS = ["product_id", "store_id", "week"]
 def revenue_weights(transactions_window: pd.DataFrame) -> pd.Series:
     """Per-product revenue share over the supplied window (the weight w_i).
 
-    Callers pass the public TRAINING window (holdout revenue is hidden;
-    training-window weights are participant-reproducible).
+    Callers pass the public TRAINING window (holdout revenue is hidden; training-window weights are participant-reproducible).
     """
     revenue = transactions_window.groupby("product_id")["dollars"].sum().astype(float)
     total = float(revenue.sum())
@@ -47,9 +34,7 @@ def revenue_weights(transactions_window: pd.DataFrame) -> pd.Series:
 def build_demand_truth(transactions_full: pd.DataFrame, eval_weeks: list[int]) -> pd.DataFrame:
     """Observed holdout sales per (product, store, week) — the Layer-1 truth.
 
-    `transactions_full` is the hidden full panel
-    (`hidden/transactions_full_hidden.csv`); the truth is its `units` column
-    over the holdout window.
+    `transactions_full` is the hidden full panel (`hidden/transactions_full_hidden.csv`); the truth is its `units` column over the holdout window.
     """
     window = transactions_full[
         transactions_full["week"].isin(set(int(w) for w in eval_weeks))
@@ -65,10 +50,7 @@ def demand_prediction_scores(
 ) -> dict[str, Any]:
     """Demand-WMAPE + Demand-WMPE for one submission.
 
-    `predictions` must carry (product_id, store_id, week, predicted_units);
-    `truth` carries the same keys + `true_units`. Scoring runs on the inner
-    join; coverage diagnostics report rows of truth without a prediction —
-    an incomplete submission is flagged, not silently dropped.
+    `predictions` must carry (product_id, store_id, week, predicted_units); `truth` carries the same keys + `true_units`. Scoring runs on the inner join; coverage diagnostics report rows of truth without a prediction — an incomplete submission is flagged, not silently dropped.
     """
     pred = predictions[KEY_COLUMNS + ["predicted_units"]].copy()
     pred["predicted_units"] = pd.to_numeric(pred["predicted_units"], errors="coerce")

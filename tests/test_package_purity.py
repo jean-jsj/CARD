@@ -1,9 +1,6 @@
 """Guard: `causal_demand_metrics` is pure — importable without the pipeline.
 
-The package is the single source of truth for the metric math and is
-distributed standalone (pip). It must never grow an import of
-`benchmark_pipeline`, which would drag the hidden DGP into the public
-distribution.
+The package is the single source of truth for the metric math and is distributed standalone (pip). It must never grow an import of `benchmark_pipeline`, which would drag the hidden DGP into the public distribution.
 """
 
 from __future__ import annotations

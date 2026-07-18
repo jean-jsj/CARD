@@ -40,8 +40,7 @@ def _scores(
 
 
 def test_leaderboard_ranks_by_abs_own_wmpe_headline():
-    # `weak` carries the larger |own-price WMPE| (0.30 vs 0.12) → the closer-to-
-    # zero identification bias (`strong`) must rank first.
+    # `weak` carries the larger |own-price WMPE| (0.30 vs 0.12) → the closer-to- zero identification bias (`strong`) must rank first.
     table = leaderboard_rows(
         [_scores("weak", -0.30, sub_wape=0.5), _scores("strong", -0.12, sub_wape=0.2)]
     )
@@ -86,8 +85,7 @@ def test_aggregate_seeds_means_and_spread():
     row = table.iloc[0]
     assert row["cell_type"] == "complex_log_log_endogenous"
     assert row["n_seeds"] == 3
-    # own-price WMPE mean = (-0.10 - 0.20 - 0.30) / 3 = -0.20; substitution WAPE
-    # mean = (0.80 + 0.70 + 0.90) / 3 = 0.80.
+    # own-price WMPE mean = (-0.10 - 0.20 - 0.30) / 3 = -0.20; substitution WAPE mean = (0.80 + 0.70 + 0.90) / 3 = 0.80.
     assert row["layer3_own_price_wmpe"] == pytest.approx(-0.20)
     assert row["layer3_substitution_wape"] == pytest.approx(0.80)
     assert row["layer3_substitution_wape_seed_sd"] == pytest.approx(0.0816496, abs=1e-5)

@@ -2,36 +2,13 @@
 
 Usage:
     python3 -m metrics.evaluate_all \
-        --cells-root benchmark/dev/ \
-        --submissions-root my_model/ \
-        [--submission-name my_model] [--out-dir scores/] \
-        [--cells 'complex_*_endogenous*' ...] \
-        [--reference-scores benchmark/reference_scores/] \
-        [--dump-values-dir dumps/] [--format table|markdown]
+        --cells-root benchmark/dev/ \ --submissions-root my_model/ \ [--submission-name my_model] [--out-dir scores/] \ [--cells 'complex_*_endogenous*' ...] \ [--reference-scores benchmark/reference_scores/] \ [--dump-values-dir dumps/] [--format table|markdown]
 
-Multi-cell convenience wrapper around `metrics.evaluate_submission`: discovers
-cell directories under `--cells-root`, pairs each with the submission
-subdirectory of the same cell slug (`<submissions-root>/<cell_slug>/`, the
-layout SUBMISSION_FORMAT.md prescribes), scores every pair, writes one
-`scores.json` per cell into `--out-dir`, and prints a combined per-cell-type
-leaderboard at the end.
+Multi-cell convenience wrapper around `metrics.evaluate_submission`: discovers cell directories under `--cells-root`, pairs each with the submission subdirectory of the same cell slug (`<submissions-root>/<cell_slug>/`, the layout SUBMISSION_FORMAT.md prescribes), scores every pair, writes one `scores.json` per cell into `--out-dir`, and prints a combined per-cell-type leaderboard at the end.
 
-Cells whose hidden truth is absent (the eval seeds in the release packaging —
-truth is maintainer-only) are skipped with a notice, as are cells without a
-matching submission subdirectory. A scoring error in one cell does not stop
-the others; it is reported and reflected in the exit code.
+Cells whose hidden truth is absent (the eval seeds in the release packaging — truth is maintainer-only) are skipped with a notice, as are cells without a matching submission subdirectory. A scoring error in one cell does not stop the others; it is reported and reflected in the exit code.
 
-Actual-data arm. SYNTHETIC cells score Layers 1/2/3 and are the
-ranked leaderboard. The ACTUAL-data arm (real POS panel) scores Layer 1 +
-Layer 4 only — it is PUBLIC-ONLY by design (no hidden truth EVER exists on real
-data), so it must NOT be caught by the "hidden truth absent → skip" branch that
-withholds eval-seed synthetic cells. Because an actual cell is a PRE-BUILT dict
-(`metrics.actual_data.load_actual_cell(data_root)`), not a synthetic cell dir
-discoverable under `--cells-root`, it is routed through `evaluate_prebuilt`
-from a separate `--actual-data-root`, NOT through `discover_cells`.
-The actual arm is a DIAGNOSTIC PANEL in its own `(cell_type, data_arm)`
-leaderboard partition — never ranked into the synthetic own-price-WMPE
-headline.
+Actual-data arm. SYNTHETIC cells score Layers 1/2/3 and are the ranked leaderboard. The ACTUAL-data arm (real POS panel) scores Layer 1 + Layer 4 only — it is PUBLIC-ONLY by design (no hidden truth EVER exists on real data), so it must NOT be caught by the "hidden truth absent → skip" branch that withholds eval-seed synthetic cells. Because an actual cell is a PRE-BUILT dict (`metrics.actual_data.load_actual_cell(data_root)`), not a synthetic cell dir discoverable under `--cells-root`, it is routed through `evaluate_prebuilt` from a separate `--actual-data-root`, NOT through `discover_cells`. The actual arm is a DIAGNOSTIC PANEL in its own `(cell_type, data_arm)` leaderboard partition — never ranked into the synthetic own-price-WMPE headline.
 """
 
 from __future__ import annotations
@@ -51,8 +28,7 @@ from metrics.leaderboard import leaderboard_rows, to_markdown
 def discover_cells(cells_root: Path, patterns: list[str] | None) -> list[Path]:
     """Cell directories under `cells_root` (those carrying a scoring config).
 
-    Released cells carry `release/scoring_params.json`; maintainer-side full
-    outputs carry `reports/run_config_resolved.json`. Either marks a cell.
+    Released cells carry `release/scoring_params.json`; maintainer-side full outputs carry `reports/run_config_resolved.json`. Either marks a cell.
     """
     cells = sorted(
         path
@@ -78,8 +54,7 @@ def evaluate_all(
 ) -> tuple[list[dict[str, Any]], list[dict[str, str]], int]:
     """Score every (cell, submission) pair found.
 
-    Returns `(score_payloads, skipped, n_errors)` where `skipped` carries one
-    `{cell, reason}` record per unscored cell.
+    Returns `(score_payloads, skipped, n_errors)` where `skipped` carries one `{cell, reason}` record per unscored cell.
     """
     payloads: list[dict[str, Any]] = []
     skipped: list[dict[str, str]] = []
@@ -94,8 +69,7 @@ def evaluate_all(
             skipped.append({"cell": slug, "reason": "no submission subdirectory"})
             continue
         if not (cell_dir / "hidden" / "transactions_full_hidden.csv").exists():
-            # Release packaging: eval-seed cells ship public/ only; their truth
-            # is maintainer-private. Local scoring is dev-cell-only by design.
+            # Release packaging: eval-seed cells ship public/ only; their truth is maintainer-private. Local scoring is dev-cell-only by design.
             skipped.append({"cell": slug, "reason": "hidden truth absent (eval cell?)"})
             continue
         dump_values = (dump_values_dir / f"{submission_name}__{slug}.csv") if dump_values_dir else None
@@ -126,20 +100,12 @@ def evaluate_actual_arm(
 ) -> tuple[dict[str, Any] | None, dict[str, str] | None]:
     """Score the ACTUAL-data arm (Layer 1 + Layer 4 only), never blanket-skipped.
 
-    The actual cell is a PRE-BUILT dict (`load_actual_cell`) rather than
-    a synthetic cell dir under `--cells-root`, so it is loaded here from
-    `actual_data_root` and routed through `evaluate_prebuilt` — it must
-    NOT pass through the synthetic "hidden truth absent → skip" branch, because
-    real data has NO hidden truth by design. Returns `(scores, None)` on
-    success or `(None, {cell, reason})` when the real panel is not present /
-    scoring failed.
+    The actual cell is a PRE-BUILT dict (`load_actual_cell`) rather than a synthetic cell dir under `--cells-root`, so it is loaded here from `actual_data_root` and routed through `evaluate_prebuilt` — it must NOT pass through the synthetic "hidden truth absent → skip" branch, because real data has NO hidden truth by design. Returns `(scores, None)` on success or `(None, {cell, reason})` when the real panel is not present / scoring failed.
     """
     try:
         cell = load_actual_cell(actual_data_root)
     except ActualDataNotAvailable as exc:
-        # Public-only actual arm: the Dominick's panel is not downloaded in
-        # this checkout. This is NOT the synthetic hidden-truth skip; report it
-        # distinctly so it never masquerades as an eval-seed synthetic cell.
+        # Public-only actual arm: the Dominick's panel is not downloaded in this checkout. This is NOT the synthetic hidden-truth skip; report it distinctly so it never masquerades as an eval-seed synthetic cell.
         return None, {"cell": "actual", "reason": f"actual data not available: {exc}"}
     slug = cell.get("cell_slug", cell.get("family", "actual"))
     submission_dir = submissions_root / slug
@@ -213,8 +179,7 @@ def main() -> None:
         dump_values_dir=args.dump_values_dir,
     )
 
-    # Actual-data arm: scored separately from the synthetic discovery loop
-    # so the "hidden truth absent -> skip" branch never fires on real data.
+    # Actual-data arm: scored separately from the synthetic discovery loop so the "hidden truth absent -> skip" branch never fires on real data.
     if args.actual_data_root is not None:
         actual_scores, actual_skip = evaluate_actual_arm(
             args.actual_data_root,
@@ -232,13 +197,7 @@ def main() -> None:
 
     table_payloads = list(payloads)
     if args.reference_scores is not None:
-        # Merge reference rows, but guard the actual/synthetic arm split.
-        # A reference joins a cell ONLY when BOTH cell_slug AND data_arm
-        # match a scored cell — treating a missing data_arm as "synthetic" on both
-        # sides. When the actual arm coexists with the synthetic arm for the same
-        # cell_slug, a cell_slug-only match would splice a synthetic reference row
-        # into the actual panel (or vice-versa); the data_arm equality prevents it,
-        # keeping the actual arm its own clean (cell_type, data_arm) partition.
+        # Merge reference rows, but guard the actual/synthetic arm split. A reference joins a cell ONLY when BOTH cell_slug AND data_arm match a scored cell — treating a missing data_arm as "synthetic" on both sides. When the actual arm coexists with the synthetic arm for the same cell_slug, a cell_slug-only match would splice a synthetic reference row into the actual panel (or vice-versa); the data_arm equality prevents it, keeping the actual arm its own clean (cell_type, data_arm) partition.
         def _key(p: dict[str, Any]) -> tuple[str, str]:
             return (
                 p.get("cell_slug") or Path(p.get("cell_dir", "")).name,
@@ -253,9 +212,7 @@ def main() -> None:
             json.loads(path.read_text())
             for path in sorted(args.reference_scores.glob("*.json"))
         ]
-        # Keep a reference unless its cell_slug is scored under a DIFFERENT arm only
-        # (i.e. the slug collides across arms and this reference's arm is absent from
-        # the scored set) — that is the cross-arm splice the guard exists to block.
+        # Keep a reference unless its cell_slug is scored under a DIFFERENT arm only (i.e. the slug collides across arms and this reference's arm is absent from the scored set) — that is the cross-arm splice the guard exists to block.
         kept_references = [
             p
             for p in reference_payloads

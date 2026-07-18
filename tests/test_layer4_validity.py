@@ -1,7 +1,6 @@
 """Unit tests for Layer-4 validity checks (label-free, ground-truth-free).
 
-Every metric reads only predictions + public price moves — no ``dq_true``,
-no ``eps_star`` — so these scores work on real POS data. Hand-computed cases.
+Every metric reads only predictions + public price moves — no ``dq_true``, no ``eps_star`` — so these scores work on real POS data. Hand-computed cases.
 """
 
 from __future__ import annotations
@@ -153,8 +152,7 @@ def test_ci_skipped_when_n_boot_zero():
 
 
 def test_substitution_reports_both_count_and_mass():
-    # One big correct competitor hides two small wrong ones under mass-weighting,
-    # but the unweighted count exposes them. ΣΔq=0 so netting is a no-op.
+    # One big correct competitor hides two small wrong ones under mass-weighting, but the unweighted count exposes them. ΣΔq=0 so netting is a no-op.
     frame = _frame([("F", 100, -26), ("A", 50, 30), ("B", 50, -2), ("C", 50, -2)])
     out = substitution_sign_validity(frame, "F", price_increase=True, n_boot=200)
     assert out["frac_redistribution_mass_correct"] == pytest.approx(30 / 34)  # mass hides them
@@ -167,8 +165,7 @@ def test_substitution_reports_both_count_and_mass():
 
 
 def test_complements_flip_expected_sign():
-    # Hike: A,C are substitutes (gain), B is a complement (loses with focal).
-    # ΣΔq = -16 + 12 - 4 + 8 = 0.
+    # Hike: A,C are substitutes (gain), B is a complement (loses with focal). ΣΔq = -16 + 12 - 4 + 8 = 0.
     frame = _frame([("F", 100, -16), ("A", 50, 12), ("B", 50, -4), ("C", 50, 8)])
     naive = substitution_sign_validity(frame, "F", price_increase=True)
     assert naive["frac_redistribution_mass_correct"] == pytest.approx(20 / 24)  # B scored wrong

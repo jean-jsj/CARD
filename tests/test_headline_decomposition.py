@@ -1,9 +1,6 @@
 """Unit tests for the decomposed Layer-3 headline.
 
-own = signed WMPE on the category-netted focal Δq (pooled); substitution =
-unsigned WAPE (raw-mass L1) on the category-netted competitor Δq (pooled). Both
-net each side by its own category shift ΔM = ΣΔq, then micro-average (pool
-numerators and denominators, divide once). Hand-computed deterministic cases.
+own = signed WMPE on the category-netted focal Δq (pooled); substitution = unsigned WAPE (raw-mass L1) on the category-netted competitor Δq (pooled). Both net each side by its own category shift ΔM = ΣΔq, then micro-average (pool numerators and denominators, divide once). Hand-computed deterministic cases.
 """
 
 from __future__ import annotations
@@ -37,8 +34,7 @@ def test_own_and_sub_zero_for_perfect_prediction():
 
 
 def test_own_price_wmpe_signs_the_bias():
-    # Over-shoot the focal loss (-28 vs -20); competitors keep ΔM_pred = 0 so
-    # netting is a no-op on the focal -> own WMPE = (-28 - -20)/20 = -0.4 (signed).
+    # Over-shoot the focal loss (-28 vs -20); competitors keep ΔM_pred = 0 so netting is a no-op on the focal -> own WMPE = (-28 - -20)/20 = -0.4 (signed).
     frame = _frame([("F", 100, -20, -28), ("A", 50, 10, 14), ("B", 50, 10, 14)])
     out = decomposed_headline(frame, "F")
     assert out["own_price_wmpe"] == pytest.approx(-0.4)
@@ -54,17 +50,14 @@ def test_substitution_wape_zero_for_perfect_competitors():
 
 
 def test_substitution_wape_measures_competitor_mass_error():
-    # rt = {A:8, B:6, C:6}; rp = {A:8, B:10, C:2}; ΔM_pred = 0 (no netting shift).
-    # |err| = 0 + 4 + 4 = 8; |true| = 8 + 6 + 6 = 20 -> WAPE = 0.4.
+    # rt = {A:8, B:6, C:6}; rp = {A:8, B:10, C:2}; ΔM_pred = 0 (no netting shift). |err| = 0 + 4 + 4 = 8; |true| = 8 + 6 + 6 = 20 -> WAPE = 0.4.
     frame = _frame([("F", 100, -20, -20), ("A", 50, 8, 8), ("B", 50, 6, 10), ("C", 50, 6, 2)])
     out = decomposed_headline(frame, "F")
     assert out["substitution_wape"] == pytest.approx(0.4)
 
 
 def test_category_netting_isolates_both_axes():
-    # Prediction = true substitution + a WRONG category shift (ΔM_pred=-40).
-    # Netting each side by its own ΔM removes the category term -> own=0, sub=0
-    # (a category-magnitude error is graded on neither axis).
+    # Prediction = true substitution + a WRONG category shift (ΔM_pred=-40). Netting each side by its own ΔM removes the category term -> own=0, sub=0 (a category-magnitude error is graded on neither axis).
     base = {"F": 100.0, "A": 50.0, "B": 50.0, "C": 50.0}
     total = sum(base.values())
     dq_true = {"F": -20.0, "A": 8.0, "B": 6.0, "C": 6.0}  # ΣΔq* = 0
@@ -79,8 +72,7 @@ def test_category_netting_isolates_both_axes():
 
 
 def test_pooled_micro_average_across_store_weeks():
-    # S1 own contribution -4 (|true| 20); S2 own contribution 0 (|true| 10).
-    # Pooled: own_signed_sum -4 / own_abs_true_sum 30 -> WMPE = -4/30.
+    # S1 own contribution -4 (|true| 20); S2 own contribution 0 (|true| 10). Pooled: own_signed_sum -4 / own_abs_true_sum 30 -> WMPE = -4/30.
     f = pd.concat(
         [
             _frame([("F", 100, -20, -24), ("A", 50, 10, 12), ("B", 50, 10, 12)], store="S1"),
@@ -96,8 +88,7 @@ def test_pooled_micro_average_across_store_weeks():
 
 
 def test_pure_category_scaling_returns_none():
-    # dq_true = ΔM * share exactly -> every netted residual is 0 -> denominators
-    # 0 -> both axes None (a separate degenerate case from a real 0.0).
+    # dq_true = ΔM * share exactly -> every netted residual is 0 -> denominators 0 -> both axes None (a separate degenerate case from a real 0.0).
     base = {"F": 100.0, "A": 50.0, "B": 50.0}
     total = sum(base.values())
     dm = -30.0

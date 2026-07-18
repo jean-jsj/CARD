@@ -1,11 +1,9 @@
 """Download one benchmark cell from the Hugging Face hub.
 
 Usage:
-    pip install huggingface_hub
-    python examples/download_data.py --cell complex_log_log_endogenous_seed001
+    pip install huggingface_hub python examples/download_data.py --cell complex_log_log_endogenous_seed001
 
-Downloads into benchmark/dev/<cell_slug>/ (the dev seed includes hidden/
-scoring truth; eval seeds are public-only).
+Downloads into benchmark/dev/<cell_slug>/ (the dev seed includes hidden/ scoring truth; eval seeds are public-only).
 """
 
 from __future__ import annotations

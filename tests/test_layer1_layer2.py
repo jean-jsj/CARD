@@ -167,9 +167,7 @@ def test_log_log_truth_closed_form():
 def _incidence_frames() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Conditional (switching) truth, per-priced-product incidence shift, total.
 
-    ε_total(i,j) = ε_M(j) + ε_cond(i,j) exactly; the C↔A pairs have ZERO
-    switching, so on totals they look like complements (the incidence shift),
-    while on the conditional basis they are unrelated.
+    ε_total(i,j) = ε_M(j) + ε_cond(i,j) exactly; the C↔A pairs have ZERO switching, so on totals they look like complements (the incidence shift), while on the conditional basis they are unrelated.
     """
     products = ["P1", "P2", "P3"]
     cond = pd.DataFrame(
@@ -196,8 +194,7 @@ def test_classification_basis_is_conditional_when_supplied():
     off = ~np.eye(3, dtype=bool)
     expected = float(np.quantile(np.abs(cond.to_numpy()[off]), 0.20))
     assert cross["unrelated_abs_threshold"] == pytest.approx(expected)
-    # A submission with perfect totals earns perfect classes (its conditional
-    # implication ε̂ − ε*_M(j) reproduces the true switching matrix exactly).
+    # A submission with perfect totals earns perfect classes (its conditional implication ε̂ − ε*_M(j) reproduces the true switching matrix exactly).
     for block in cross["f1_per_class"].values():
         assert block["f1"] in (None, 1.0)
     # Magnitude blocks stay on totals: perfect totals ⇒ zero error.
@@ -211,10 +208,7 @@ def test_classification_falls_back_to_total_without_conditional():
     with_cond = elasticity_scores(total, total, weights, eps_star_conditional=cond)
     without = elasticity_scores(total, total, weights)
     assert without["cross_price"]["classification_basis"] == "total"
-    # On the conditional basis no pair is a complement (the fixture has no
-    # true complementarity); on totals the common negative incidence shift
-    # manufactures apparent complements — the semantic muddying the
-    # conditional basis avoids.
+    # On the conditional basis no pair is a complement (the fixture has no true complementarity); on totals the common negative incidence shift manufactures apparent complements — the semantic muddying the conditional basis avoids.
     n_complement_cond = with_cond["cross_price"]["f1_per_class"]["complement"]["n_true"]
     n_complement_total = without["cross_price"]["f1_per_class"]["complement"]["n_true"]
     assert n_complement_cond == 0

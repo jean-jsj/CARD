@@ -4,18 +4,9 @@ Usage:
     python3 -m metrics.leaderboard scores_a.json scores_b.json ... \
         [--out leaderboard.csv] [--format table|markdown|csv] [--aggregate-seeds]
 
-Each input is an `evaluate_submission` output. Rows are ranked (within each
-cell-type) by `|own-price WMPE|` ASCENDING — closest-to-zero identification bias
-first (the Layer-3 headline own axis). Own-price WMPE (signed, for direction) and
-substitution WAPE are reported as the PAIR, both from the single scenario
-`sweep_single_share_highest_plus10`; the Layer-1/2 headline numbers ride along as
-columns. The README's main arena is the two complex endogeneity-on cell-types.
+Each input is an `evaluate_submission` output. Rows are ranked (within each cell-type) by `|own-price WMPE|` ASCENDING — closest-to-zero identification bias first (the Layer-3 headline own axis). Own-price WMPE (signed, for direction) and substitution WAPE are reported as the PAIR, both from the single scenario `sweep_single_share_highest_plus10`; the Layer-1/2 headline numbers ride along as columns. The README's main arena is the two complex endogeneity-on cell-types.
 
-`--aggregate-seeds` groups scores of the same (model × cell-type) across seeds
-and reports `mean ± spread` — the maintainer-side mode for building the README
-table from the eval seeds. `--format markdown` emits the README-ready table.
-The leaderboard is per cell-type; endogeneity-on cells are the benchmark's
-main arena.
+`--aggregate-seeds` groups scores of the same (model × cell-type) across seeds and reports `mean ± spread` — the maintainer-side mode for building the README table from the eval seeds. `--format markdown` emits the README-ready table. The leaderboard is per cell-type; endogeneity-on cells are the benchmark's main arena.
 """
 
 from __future__ import annotations
@@ -41,8 +32,7 @@ def leaderboard_rows(score_payloads: list[dict[str, Any]]) -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
     for scores in score_payloads:
         layer3 = scores.get("layer3_counterfactual", {})
-        # The headline pair: own-price WMPE (signed) and substitution WAPE,
-        # both from the single scenario `sweep_single_share_highest_plus10`.
+        # The headline pair: own-price WMPE (signed) and substitution WAPE, both from the single scenario `sweep_single_share_highest_plus10`.
         headline = layer3.get("headline") or {}
         own_block = headline.get("own_price") or {}
         sub_block = headline.get("substitution") or {}
@@ -52,21 +42,10 @@ def leaderboard_rows(score_payloads: list[dict[str, Any]]) -> pd.DataFrame:
         layer1 = scores.get("layer1_demand_prediction", {})
         layer2 = scores.get("layer2_elasticity_estimation", {})
         own = layer2.get("own_price") or {}
-        # Actual-data arm. On synthetic rows the `data_arm` tag is
-        # absent → defaults to "synthetic", and the `layer4_validity_actual`
-        # block is absent → every `.get` chain below degrades to `None`. The four
-        # L4 fractions are a DIAGNOSTIC PANEL reported alongside — NOT combined
-        # into one scalar, NOT ranked. L4 leaf keys match
-        # causal_demand_metrics/layer4_validity.py: `frac_correct_sign`
-        # (own_price_sign_validity), `frac_redistribution_mass_correct`
-        # (substitution_sign_validity), `frac_in_band` (own_elasticity_range_
-        # coverage), `frac_consistent` (sweep_monotonicity).
+        # Actual-data arm. On synthetic rows the `data_arm` tag is absent → defaults to "synthetic", and the `layer4_validity_actual` block is absent → every `.get` chain below degrades to `None`. The four L4 fractions are a DIAGNOSTIC PANEL reported alongside — NOT combined into one scalar, NOT ranked. L4 leaf keys match causal_demand_metrics/layer4_validity.py: `frac_correct_sign` (own_price_sign_validity), `frac_redistribution_mass_correct` (substitution_sign_validity), `frac_in_band` (own_elasticity_range_ coverage), `frac_consistent` (sweep_monotonicity).
         data_arm = scores.get("data_arm", "synthetic")
         l4 = scores.get("layer4_validity_actual") or {}
-        # Layer 1 runs on BOTH arms: keep the actual-arm L1 in a
-        # SEPARATE column from the synthetic-arm L1 so the two arms never mix in
-        # one column. `layer1_demand_prediction` is the same block name / leaf
-        # keys on both arms; populate the actual columns ONLY for actual rows.
+        # Layer 1 runs on BOTH arms: keep the actual-arm L1 in a SEPARATE column from the synthetic-arm L1 so the two arms never mix in one column. `layer1_demand_prediction` is the same block name / leaf keys on both arms; populate the actual columns ONLY for actual rows.
         is_actual = data_arm == "actual"
         rows.append(
             {
@@ -96,16 +75,7 @@ def leaderboard_rows(score_payloads: list[dict[str, Any]]) -> pd.DataFrame:
         )
     frame = pd.DataFrame(rows)
     if len(frame):
-        # Rank WITHIN each cell-type by |own-price WMPE| ASCENDING
-        # (closest-to-zero identification bias first); the reported
-        # `layer3_own_price_wmpe` column stays SIGNED (direction). The README's
-        # main arena is the two complex endogeneity-on cell types. The actual
-        # arm contributes no sort key: actual rows carry `None` own-WMPE →
-        # `na_position="last"` sinks them to the bottom of their cell-type
-        # block, and the cumcount groupby is (cell_type, data_arm) so `rank`
-        # RESTARTS per arm, keeping the actual arm in its own diagnostic
-        # partition — never interleaved into, and never a headline ranking of,
-        # the synthetic rows.
+        # Rank WITHIN each cell-type by |own-price WMPE| ASCENDING (closest-to-zero identification bias first); the reported `layer3_own_price_wmpe` column stays SIGNED (direction). The README's main arena is the two complex endogeneity-on cell types. The actual arm contributes no sort key: actual rows carry `None` own-WMPE → `na_position="last"` sinks them to the bottom of their cell-type block, and the cumcount groupby is (cell_type, data_arm) so `rank` RESTARTS per arm, keeping the actual arm in its own diagnostic partition — never interleaved into, and never a headline ranking of, the synthetic rows.
         frame["_abs_own_wmpe"] = pd.to_numeric(frame["layer3_own_price_wmpe"], errors="coerce").abs()
         frame = frame.sort_values(
             ["cell_type", "_abs_own_wmpe"], ascending=[True, True], na_position="last"
@@ -117,9 +87,7 @@ def leaderboard_rows(score_payloads: list[dict[str, Any]]) -> pd.DataFrame:
 def aggregate_seeds(frame: pd.DataFrame) -> pd.DataFrame:
     """Group per (submission × cell_type) across seeds: mean ± cross-seed spread.
 
-    The maintainer-side mode for the README table: the official score is the
-    headline averaged over the eval seeds, with the spread as built-in
-    seed-robustness evidence.
+    The maintainer-side mode for the README table: the official score is the headline averaged over the eval seeds, with the spread as built-in seed-robustness evidence.
     """
     numeric = [
         "layer3_substitution_wape",
@@ -129,8 +97,7 @@ def aggregate_seeds(frame: pd.DataFrame) -> pd.DataFrame:
         "layer2_own_sign_accuracy",
         "layer2_own_wmape",
         "layer2_own_wmpe",
-        # Actual-data arm diagnostics: without these columns the
-        # seed-aggregated table would silently DROP every actual-arm number.
+        # Actual-data arm diagnostics: without these columns the seed-aggregated table would silently DROP every actual-arm number.
         "layer4_own_sign_frac",
         "layer4_substitution_frac",
         "layer4_range_in_band",
@@ -138,8 +105,7 @@ def aggregate_seeds(frame: pd.DataFrame) -> pd.DataFrame:
         "layer1_actual_wmape",
         "layer1_actual_wmpe",
     ]
-    # Carry `data_arm` through the grouping so each arm aggregates separately
-    # (arms stay in separate partitions; both survive aggregation).
+    # Carry `data_arm` through the grouping so each arm aggregates separately (arms stay in separate partitions; both survive aggregation).
     if "data_arm" not in frame.columns:
         frame = frame.assign(data_arm="synthetic")
     grouped = frame.groupby(["submission", "cell_type", "data_arm"], dropna=False)
@@ -158,9 +124,7 @@ def aggregate_seeds(frame: pd.DataFrame) -> pd.DataFrame:
         rows.append(row)
     out = pd.DataFrame(rows)
     if len(out):
-        # Same |own-WMPE| ASC direction as `leaderboard_rows`; the
-        # rank cumcount restarts per (cell_type, data_arm) so the actual arm is
-        # its own partition, never interleaved.
+        # Same |own-WMPE| ASC direction as `leaderboard_rows`; the rank cumcount restarts per (cell_type, data_arm) so the actual arm is its own partition, never interleaved.
         out["_abs_own_wmpe"] = pd.to_numeric(out["layer3_own_price_wmpe"], errors="coerce").abs()
         out = out.sort_values(
             ["cell_type", "_abs_own_wmpe"], ascending=[True, True], na_position="last"
@@ -189,8 +153,7 @@ def to_markdown(frame: pd.DataFrame) -> str:
             "rank", "submission", "cell_type", "cell_slug", "data_arm", "n_seeds",
             "layer3_own_price_wmpe", "layer3_substitution_wape",
             "layer1_demand_wmape", "layer2_own_wmape", "layer2_own_wmpe",
-            # Actual-arm diagnostic panel columns: rendered alongside,
-            # NOT the sort key.
+            # Actual-arm diagnostic panel columns: rendered alongside, NOT the sort key.
             "layer1_actual_wmape",
             "layer4_own_sign_frac", "layer4_substitution_frac",
             "layer4_range_in_band", "layer4_monotonicity_frac",

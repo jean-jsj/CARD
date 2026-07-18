@@ -1,51 +1,19 @@
 """Layer 2 elasticity-estimation metrics.
 
-All elasticities — model-side and ground-truth — are defined via a 1%
-price-perturbation construction at observed test-window prices:
+All elasticities — model-side and ground-truth — are defined via a 1% price-perturbation construction at observed test-window prices:
 
     ε_ij = [Σ_st q_i(p_j·1.01, p_−j) − Σ_st q_i(p)] / (0.01 · Σ_st q*_i(p))
 
-yielding a J×J matrix (rows = affected product i, columns = priced product j;
-diagonal = own-price). The denominator always uses the DGP's baseline
-quantities q*, isolating price-response accuracy from demand-level accuracy.
+yielding a J×J matrix (rows = affected product i, columns = priced product j; diagonal = own-price). The denominator always uses the DGP's baseline quantities q*, isolating price-response accuracy from demand-level accuracy.
 
 Ground truth per family:
 
-* **log_log** — the DGP is constant-elasticity, so the perturbation response
-  is exact in closed form: `q_i(p_j·1.01)/q_i(p) = exp(e_eff·ln 1.01)` with
-  `e_eff(i,j) = own_i·1{i=j} + cross[j,i]`, giving
-  `ε*_ij = (1.01^e_eff − 1)/0.01` independent of (s, t). A replay would add
-  only integer-rounding noise.
-* **covariance_probit** — no closed form; the truth is J replays of the
-  consumer micro-simulation (one per perturbed product) over the evaluation
-  window, using the family's common-RNG replay machinery so the perturbation
-  response is exact for the realized consumer population. That generator
-  depends on the benchmark's hidden DGP and lives pipeline-side
-  (`benchmark_pipeline/metrics/elasticity_truth.py`), not in this package.
+* **log_log** — the DGP is constant-elasticity, so the perturbation response is exact in closed form: `q_i(p_j·1.01)/q_i(p) = exp(e_eff·ln 1.01)` with `e_eff(i,j) = own_i·1{i=j} + cross[j,i]`, giving `ε*_ij = (1.01^e_eff − 1)/0.01` independent of (s, t). A replay would add only integer-rounding noise.
+* **covariance_probit** — no closed form; the truth is J replays of the consumer micro-simulation (one per perturbed product) over the evaluation window, using the family's common-RNG replay machinery so the perturbation response is exact for the realized consumer population. That generator depends on the benchmark's hidden DGP and lives pipeline-side (`benchmark_pipeline/metrics/elasticity_truth.py`), not in this package.
 
-Scoring covers four dimensions: Direction (own sign accuracy; cross F1 per
-substitute/complement/unrelated class), Ranking (cross NDCG), Magnitude
-(WMAPE, RMSE), Bias (WMPE, mean signed error), with cross-price metrics
-stratified by true relationship class. The unrelated-class boundary is the
-bottom `unrelated_threshold_pct` (default 20%) percentile of the
-classification basis |ε|, reported with the scores.
+Scoring covers four dimensions: Direction (own sign accuracy; cross F1 per substitute/complement/unrelated class), Ranking (cross NDCG), Magnitude (WMAPE, RMSE), Bias (WMPE, mean signed error), with cross-price metrics stratified by true relationship class. The unrelated-class boundary is the bottom `unrelated_threshold_pct` (default 20%) percentile of the classification basis |ε|, reported with the scores.
 
-Purchase incidence. The scored truth ε* is the **TOTAL** elasticity —
-q_i = M(p)·s_i(p), incidence margin included — because participants model
-units and any correct units-based model estimates the total effect. Since
-ln q_i = ln M + ln s_i, the decomposition ε_total(i,j) = ε_M(j) + ε_cond(i,j)
-is exactly additive; the DGP emits the conditional (fixed-M switching) matrix
-alongside the total. The substitute/complement/unrelated **classification
-runs on the conditional elasticity** when supplied (pure substitution
-semantics — under totals, the common ε_M(j) < 0 shift would turn
-zero-switching pairs into apparent complements and make the bottom-percentile
-band select knife-edge cancellation pairs). Predictions are classed on
-ε̂_ij − ε*_M(j) (the true incidence component netted out — truth-anchored
-boundaries, same as the threshold itself); magnitude/bias/ranking are always
-scored on totals. The own-price diagonal is intentionally scored on totals
-too, not on the conditional/switching basis: this module is a
-total-elasticity accuracy diagnostic, whereas category-netting belongs to the
-Layer-3 headline (``headline_decomposition.py``).
+Purchase incidence. The scored truth ε* is the **TOTAL** elasticity — q_i = M(p)·s_i(p), incidence margin included — because participants model units and any correct units-based model estimates the total effect. Since ln q_i = ln M + ln s_i, the decomposition ε_total(i,j) = ε_M(j) + ε_cond(i,j) is exactly additive; the DGP emits the conditional (fixed-M switching) matrix alongside the total. The substitute/complement/unrelated **classification runs on the conditional elasticity** when supplied (pure substitution semantics — under totals, the common ε_M(j) < 0 shift would turn zero-switching pairs into apparent complements and make the bottom-percentile band select knife-edge cancellation pairs). Predictions are classed on ε̂_ij − ε*_M(j) (the true incidence component netted out — truth-anchored boundaries, same as the threshold itself); magnitude/bias/ranking are always scored on totals. The own-price diagonal is intentionally scored on totals too, not on the conditional/switching basis: this module is a total-elasticity accuracy diagnostic, whereas category-netting belongs to the Layer-3 headline (``headline_decomposition.py``).
 """
 
 from __future__ import annotations
@@ -71,25 +39,11 @@ def elasticity_truth_log_log(
 ) -> pd.DataFrame:
     """Closed-form ε* for the log_log family (rows = affected, cols = priced).
 
-    `store_sensitivity`: an optional length-S vector of per-store
-    price-sensitivity multipliers `sens_s` (the hidden per-store
-    price-sensitivity artifact). The DGP scales BOTH own and
-    cross effects per store by the same `sens_s` in deviation-from-base form, so
-    the per-store response is `(1.01^(sens_s·e_eff) − 1)/0.01`. Under that form the
-    per-store baseline quantity q* is sens-invariant (the `target_units` anchor
-    holds exactly across stores), so the quantity-weighted aggregate in the metric
-    definition (`Σ_st q*_i` denominator) reduces to the unweighted store-average:
+    `store_sensitivity`: an optional length-S vector of per-store price-sensitivity multipliers `sens_s` (the hidden per-store price-sensitivity artifact). The DGP scales BOTH own and cross effects per store by the same `sens_s` in deviation-from-base form, so the per-store response is `(1.01^(sens_s·e_eff) − 1)/0.01`. Under that form the per-store baseline quantity q* is sens-invariant (the `target_units` anchor holds exactly across stores), so the quantity-weighted aggregate in the metric definition (`Σ_st q*_i` denominator) reduces to the unweighted store-average:
 
         ε*_ij = mean_s[ (1.01^(sens_s·e_eff_ij) − 1) / 0.01 ].
 
-    When `None` (or all-ones), this is byte-identical to the single-`e_eff` closed
-    form. The integrated matrix stays close to the base
-    matrix: the asymptotic Jensen gap (E[sens]=1, 1% perturbation) is only
-    ~0.2-0.3% relative, and the dominant deviation on a finite panel is the
-    realized store-mean of sens differing from 1 (e.g. ~+2% over a 731-store
-    draw → ~2% relative on the steepest own entries; max abs ~0.04 on a
-    -2.5 own elasticity). The aggregate own-elasticity therefore tracks the
-    base matrix closely (deviation form keeps q* sens-invariant).
+    When `None` (or all-ones), this is byte-identical to the single-`e_eff` closed form. The integrated matrix stays close to the base matrix: the asymptotic Jensen gap (E[sens]=1, 1% perturbation) is only ~0.2-0.3% relative, and the dominant deviation on a finite panel is the realized store-mean of sens differing from 1 (e.g. ~+2% over a 731-store draw → ~2% relative on the steepest own entries; max abs ~0.04 on a -2.5 own elasticity). The aggregate own-elasticity therefore tracks the base matrix closely (deviation form keeps q* sens-invariant).
     """
     own = dgp.set_index("product_id")["own_elasticity"].reindex(product_ids).to_numpy(dtype=float)
     j = len(product_ids)
@@ -100,8 +54,7 @@ def elasticity_truth_log_log(
         else np.asarray(store_sensitivity, dtype=float).reshape(-1)
     )
     if sens is None or sens.size == 0 or np.all(sens == 1.0):
-        # The all-ones case routes here so the result is byte-identical to
-        # store_sensitivity=None.
+        # The all-ones case routes here so the result is byte-identical to store_sensitivity=None.
         eps = (np.power(1.0 + PERTURBATION, e_eff) - 1.0) / PERTURBATION
     else:
         # Broadcast sens (S,) over e_eff (J,J) -> (S,J,J); store-average.
@@ -167,8 +120,7 @@ def _magnitude_bias_block(
 ) -> dict[str, Any]:
     """WMAPE / RMSE / WMPE / mean signed error over one set of (i, j) entries.
 
-    `weights` carries the focal-product revenue weight w_i replicated per
-    entry; the denominator uses |ε*| because elasticities are signed.
+    `weights` carries the focal-product revenue weight w_i replicated per entry; the denominator uses |ε*| because elasticities are signed.
     """
     if hat.size == 0:
         return {"wmape": None, "rmse": None, "wmpe": None, "mean_signed_error": None, "n_entries": 0}
@@ -193,16 +145,7 @@ def elasticity_scores(
 ) -> dict[str, Any]:
     """Score a J×J estimated elasticity matrix against truth.
 
-    All frames are indexed affected_product_id × priced_product_id. `eps_star`
-    is the scored truth (the TOTAL elasticity, incidence margin included).
-    `eps_star_conditional`, when supplied, is the fixed-M switching matrix:
-    class stratification then runs on conditional values, with predictions
-    classed on ε̂ − ε*_M(j) (the true incidence component, column-constant,
-    derived as total − conditional). Without it, classification falls back to
-    the total values. The submission must cover the
-    full matrix; missing entries are reported and treated as 0.0 (the
-    no-information value) rather than dropped, so a partial submission cannot
-    shrink its own denominator.
+    All frames are indexed affected_product_id × priced_product_id. `eps_star` is the scored truth (the TOTAL elasticity, incidence margin included). `eps_star_conditional`, when supplied, is the fixed-M switching matrix: class stratification then runs on conditional values, with predictions classed on ε̂ − ε*_M(j) (the true incidence component, column-constant, derived as total − conditional). Without it, classification falls back to the total values. The submission must cover the full matrix; missing entries are reported and treated as 0.0 (the no-information value) rather than dropped, so a partial submission cannot shrink its own denominator.
     """
     products = list(eps_star.index)
     aligned_hat = eps_hat.reindex(index=eps_star.index, columns=eps_star.columns)

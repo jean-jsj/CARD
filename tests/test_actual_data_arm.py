@@ -1,15 +1,8 @@
 """Integration test for the actual-data arm.
 
-Fixture-driven, hermetic: no real Dominick's data, no simulation run. A
-hand-built in-memory actual cell (the ``build_fixture_actual_cell`` shape,
-minus the real data) flows through ``score_layer4`` and the
-``evaluate_prebuilt`` arm routing, covering the integration the unit tests
-(``test_layer4_validity.py``) do not: a submission reaching the scorer, the
-arm returning L2/L3 as ``not_applicable_actual_data``, and the derived own-ε
-band diagonal.
+Fixture-driven, hermetic: no real Dominick's data, no simulation run. A hand-built in-memory actual cell (the ``build_fixture_actual_cell`` shape, minus the real data) flows through ``score_layer4`` and the ``evaluate_prebuilt`` arm routing, covering the integration the unit tests (``test_layer4_validity.py``) do not: a submission reaching the scorer, the arm returning L2/L3 as ``not_applicable_actual_data``, and the derived own-ε band diagonal.
 
-Asserts only on the dicts returned by ``score_layer4`` / ``evaluate_prebuilt``;
-never imports or re-implements the validity internals.
+Asserts only on the dicts returned by ``score_layer4`` / ``evaluate_prebuilt``; never imports or re-implements the validity internals.
 """
 
 from __future__ import annotations
@@ -20,8 +13,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-# The import itself checks the public surface: if any symbol is absent the
-# module fails to import and the whole file errors loudly.
+# The import itself checks the public surface: if any symbol is absent the module fails to import and the whole file errors loudly.
 from metrics.actual_data import (  # noqa: E402
     ACTUAL_ARM,
     SWEEP_CONTEXT_COLUMNS,
@@ -38,9 +30,7 @@ from metrics.evaluate_submission import (  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
-# In-memory fixture actual cell: hermetic, no dependence on gitignored
-# outputs/. Mirrors the exact key + column contract build_fixture_actual_cell
-# emits, hand-built so the test is self-contained and deterministic.
+# In-memory fixture actual cell: hermetic, no dependence on gitignored outputs/. Mirrors the exact key + column contract build_fixture_actual_cell emits, hand-built so the test is self-contained and deterministic.
 # ---------------------------------------------------------------------------
 
 _PRODUCTS = ["P0", "P1", "P2"]          # 3 products
@@ -126,16 +116,13 @@ def _make_fixture_cell() -> dict:
 def _coherent_layer4_deltas(cell: dict, *, flip_focal: str | None = None) -> pd.DataFrame:
     """Predicted-Δq for the L4 file, coherent per the law of demand.
 
-    Per store-week the category shift ΔM = ΣΔq is engineered to ZERO (focal drop
-    is redistributed exactly onto the competitors), so category-netting is a no-op
-    and every competitor residual points the demanded way → all four checks ≈ 1.0.
+    Per store-week the category shift ΔM = ΣΔq is engineered to ZERO (focal drop is redistributed exactly onto the competitors), so category-netting is a no-op and every competitor residual points the demanded way → all four checks ≈ 1.0.
 
     * focal under +x%: Δq = ε·pct·baseline_units < 0; competitors split +|Δq_focal|.
     * focal under −x%: signs mirror (focal +, competitors −).
     * With ε = _FOCAL_EPS = -2.0 and pct = ±0.10 the derived own-ε = -2.0 (in band).
 
-    ``flip_focal``: if set, that focal's predicted focal Δq is sign-flipped under
-    its +x% (hike) leg — the perturbation used to prove the checks are live.
+    ``flip_focal``: if set, that focal's predicted focal Δq is sign-flipped under its +x% (hike) leg — the perturbation used to prove the checks are live.
     """
     context = cell["sweep_context"]
     n_comp = len(_PRODUCTS) - 1
@@ -172,9 +159,7 @@ def _coherent_layer4_deltas(cell: dict, *, flip_focal: str | None = None) -> pd.
 def _coherent_layer1_predictions(cell: dict) -> pd.DataFrame:
     """A perfect Layer-1 forecast (predicted == observed held-out units).
 
-    Layer 1 runs unchanged on the actual arm; the test only needs a valid,
-    scorable file — numeric accuracy is not asserted, only that a score block is
-    produced.
+    Layer 1 runs unchanged on the actual arm; the test only needs a valid, scorable file — numeric accuracy is not asserted, only that a score block is produced.
     """
     truth = cell["transactions_full"]
     truth = truth[truth["week"].isin(set(_EVAL_WEEKS))]
@@ -243,9 +228,7 @@ def test_fixture_cell_shape_and_keys():
 def test_build_fixture_actual_cell_surface_exists():
     """The fixture builder symbol is importable.
 
-    The in-memory cell is the default hermetic path; this only asserts the
-    builder exists so a synthetic-dir path stays available. No outputs/ dir is
-    required.
+    The in-memory cell is the default hermetic path; this only asserts the builder exists so a synthetic-dir path stays available. No outputs/ dir is required.
     """
     assert callable(build_fixture_actual_cell)
 
@@ -280,12 +263,7 @@ def test_score_layer4_all_checks_coherent():
     assert scores["own_elasticity_range"]["frac_in_band"] == pytest.approx(1.0)
     assert scores["monotonicity"]["frac_consistent"] == pytest.approx(1.0)
 
-    # Substitution-sign is structurally None on the actual arm: `score_layer4`
-    # merges the submitted Δq onto `sweep_context`, whose rows enumerate only
-    # the focal product per intervention — no competitor rows enter the frame,
-    # so the redistribution mass is 0 and `substitution_sign_validity` returns
-    # None. The block is present and wired; it simply has no competitor mass to
-    # score here.
+    # Substitution-sign is structurally None on the actual arm: `score_layer4` merges the submitted Δq onto `sweep_context`, whose rows enumerate only the focal product per intervention — no competitor rows enter the frame, so the redistribution mass is 0 and `substitution_sign_validity` returns None. The block is present and wired; it simply has no competitor mass to score here.
     assert scores["substitution_sign"]["frac_redistribution_mass_correct"] is None
 
 
@@ -299,8 +277,7 @@ def test_score_layer4_checks_are_live_under_perturbation():
         sub_dir = _write_submission(Path(td), cell, flip_focal="P0", with_layer1=False)
         scores = score_layer4(cell, sub_dir / LAYER4_ACTUAL_FILE)
 
-    # The flip makes P0's focal Δq POSITIVE under a hike (wrong sign) → own-price
-    # sign fraction drops, and the ± monotonicity pair no longer flips.
+    # The flip makes P0's focal Δq POSITIVE under a hike (wrong sign) → own-price sign fraction drops, and the ± monotonicity pair no longer flips.
     assert scores["own_price_sign"]["frac_correct_sign"] < 1.0
     assert scores["monotonicity"]["frac_consistent"] < 1.0
 
@@ -322,9 +299,7 @@ def test_derived_elasticity_band_diagonal_no_elasticity_file():
     # full own-price sweep covers ALL products (each moved once) → n_products == J.
     assert scores["own_elasticity_range"]["n_products"] == len(_PRODUCTS)
 
-    # Independently recompute the derived own-ε for a chosen focal from the
-    # submitted deltas + the public sweep_context: the harness uses the
-    # +x% leg, eps = (Σ dq_pred_focal / Σ baseline_units_focal) / pct_focal.
+    # Independently recompute the derived own-ε for a chosen focal from the submitted deltas + the public sweep_context: the harness uses the +x% leg, eps = (Σ dq_pred_focal / Σ baseline_units_focal) / pct_focal.
     focal = "P1"
     context = cell["sweep_context"]
     iid = f"actual_own_sweep_{focal}_plus"
@@ -340,9 +315,7 @@ def test_derived_elasticity_band_diagonal_no_elasticity_file():
     dq_sum = float(dsub["predicted_delta_units"].sum())
     expected_eps = (dq_sum / base_sum) / pct
 
-    # The whole diagonal is in-band, so the harness accepted this eps as in-band;
-    # its value must equal our independent recomputation, and it must equal the
-    # engineered _FOCAL_EPS (a cross-check on the whole derivation).
+    # The whole diagonal is in-band, so the harness accepted this eps as in-band; its value must equal our independent recomputation, and it must equal the engineered _FOCAL_EPS (a cross-check on the whole derivation).
     assert expected_eps == pytest.approx(_FOCAL_EPS)
     lo, hi = scores["own_elasticity_range"]["band"]
     assert lo <= expected_eps <= hi
@@ -379,8 +352,7 @@ def test_arm_routing_evaluate_prebuilt(tmp_path):
 
 
 # ===========================================================================
-# Leaderboard actual columns (guarded so a missing surface xfails rather
-# than errors)
+# Leaderboard actual columns (guarded so a missing surface xfails rather than errors)
 # ===========================================================================
 
 
@@ -394,8 +366,7 @@ def test_leaderboard_actual_columns_per_arm(tmp_path):
     sub_dir = _write_submission(tmp_path, cell, with_layer1=True)
     actual_scores = evaluate_prebuilt(cell, sub_dir, "actual-sub")
 
-    # A minimal synthetic score payload (no data_arm tag → defaults to synthetic;
-    # its actual columns must come back None).
+    # A minimal synthetic score payload (no data_arm tag → defaults to synthetic; its actual columns must come back None).
     synthetic_scores = {
         "submission_name": "synthetic-sub",
         "cell_slug": "complex_probit_endo_on_seed1",

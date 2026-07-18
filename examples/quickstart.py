@@ -1,12 +1,8 @@
 """Build and score a deliberately naive baseline submission for one cell.
 
-Demonstrates the three submission files end to end (you should beat this
-easily):
+Demonstrates the three submission files end to end (you should beat this easily):
 
-* Layer 1 — per (product, store), predict the mean units over the last 8
-  training weeks, for every holdout (product, store, week). The training
-  panel records positive-sales rows only, so this simple mean ignores
-  zero-sales weeks — one of many things a real model should do better.
+* Layer 1 — per (product, store), predict the mean units over the last 8 training weeks, for every holdout (product, store, week). The training panel records positive-sales rows only, so this simple mean ignores zero-sales weeks — one of many things a real model should do better.
 * Layer 2 — the all-zeros J x J elasticity matrix (the no-information value).
 * Layer 3 — predicted_delta_units = 0 everywhere ("prices don't matter").
 

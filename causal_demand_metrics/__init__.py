@@ -1,17 +1,6 @@
 """causal-demand-metrics: pure scoring math for the causal-demand benchmark.
 
-Metric definitions for every evaluation layer, packaged standalone so the
-benchmark pipeline, the participant scoring harness, and third-party tooling
-share one source of truth: `layer1_demand` (revenue-weighted WMAPE/WMPE on
-observed holdout sales), `layer2_elasticity` (J×J elasticity scoring plus the
-closed-form log_log truth), `headline_decomposition` (the Layer-3 headline:
-signed own-price WMPE plus unsigned competitor substitution WAPE on the
-category-netted Δq), and `layer4_validity` (label-free causal-coherence
-checks that read only the submission and public price moves, so they score on
-real POS data with no hidden truth). The package contains no data-generating
-code and no hidden-truth generators; it is pure numpy/pandas math over frames
-the caller supplies. Metric definitions are frozen: a semantic change
-requires a benchmark version bump, not a patch release.
+Metric definitions for every evaluation layer, packaged standalone so the benchmark pipeline, the participant scoring harness, and third-party tooling share one source of truth: `layer1_demand` (revenue-weighted WMAPE/WMPE on observed holdout sales), `layer2_elasticity` (J×J elasticity scoring plus the closed-form log_log truth), `headline_decomposition` (the Layer-3 headline: signed own-price WMPE plus unsigned competitor substitution WAPE on the category-netted Δq), and `layer4_validity` (label-free causal-coherence checks that read only the submission and public price moves, so they score on real POS data with no hidden truth). The package contains no data-generating code and no hidden-truth generators; it is pure numpy/pandas math over frames the caller supplies. Metric definitions are frozen: a semantic change requires a benchmark version bump, not a patch release.
 """
 
 from __future__ import annotations
