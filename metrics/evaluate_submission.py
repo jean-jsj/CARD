@@ -1,0 +1,615 @@
+"""Score one submission directory against one benchmark cell directory.
+
+Usage:
+    python3 -m metrics.evaluate_submission \
+        --cell-dir outputs/complex_log_log_endogenous_seed001 \
+        --submission-dir my_submission/ \
+        [--out scores.json] [--submission-name my_model]
+
+Layers whose file is absent from the submission directory are reported as
+`not_submitted`. See metrics/SUBMISSION_FORMAT.md for the file contracts.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import pandas as pd
+
+from causal_demand_metrics.headline_decomposition import (
+    decomposed_headline,
+    focal_from_context,
+)
+from causal_demand_metrics.layer1_demand import (
+    build_demand_truth,
+    demand_prediction_scores,
+    revenue_weights,
+)
+from causal_demand_metrics.layer2_elasticity import elasticity_scores
+from causal_demand_metrics.layer4_validity import (
+    FACIAL_TISSUE_OWN_BAND,
+    coherence_gate,
+    own_elasticity_range_coverage,
+    price_direction_from_context,
+    validity_scores,
+)
+
+LAYER1_FILE = "layer1_demand_predictions.csv"
+LAYER2_FILE = "layer2_elasticities.csv"
+LAYER3_FILE = "layer3_counterfactual_deltas.csv"
+
+# Actual-data arm (M-4.2): participants submit TWO files — a Layer-1 forecast and
+# the Layer-4 predicted Δq under the public own-price sweep. No elasticity file;
+# the own-elasticity band is DERIVED from the submitted Δq (score_layer4).
+LAYER1_ACTUAL_FILE = "layer1_actual_predictions.csv"
+LAYER4_ACTUAL_FILE = "layer4_actual_deltas.csv"
+
+# Required columns per submission CSV — validated up front so a malformed file
+# yields a clear, participant-facing message instead of a raw pandas KeyError
+# deep inside a pivot/merge. (See metrics/SUBMISSION_FORMAT.md.)
+LAYER1_COLUMNS = ["product_id", "store_id", "week", "predicted_units"]
+LAYER2_COLUMNS = ["affected_product_id", "priced_product_id", "elasticity"]
+LAYER3_COLUMNS = [
+    "intervention_id",
+    "product_id",
+    "store_id",
+    "week",
+    "predicted_delta_units",
+]
+
+
+class SubmissionFormatError(ValueError):
+    """A submission CSV is unreadable or missing required columns."""
+
+
+def _read_submission(path: Path, required: list[str], layer_label: str) -> pd.DataFrame:
+    """Read a submission CSV, raising a participant-friendly error on a bad
+    format (empty, unreadable, or missing required columns)."""
+    try:
+        df = pd.read_csv(path)
+    except pd.errors.EmptyDataError as exc:
+        raise SubmissionFormatError(
+            f"{layer_label}: {path.name} is empty (expected columns: {', '.join(required)})."
+        ) from exc
+    except Exception as exc:  # malformed CSV / encoding / parser error
+        raise SubmissionFormatError(
+            f"{layer_label}: could not read {path.name} ({exc})."
+        ) from exc
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise SubmissionFormatError(
+            f"{layer_label}: {path.name} is missing required column(s): "
+            f"{', '.join(missing)}. Found: [{', '.join(map(str, df.columns))}]. "
+            f"Expected: [{', '.join(required)}]. See metrics/SUBMISSION_FORMAT.md."
+        )
+    return df
+
+
+# Headline scenario — the redesigned decomposition (M-1.11) reads BOTH axes
+# (own-price WMPE + substitution WAPE) from a SINGLE flagship-focal scenario:
+# `sweep_single_share_highest_plus10` (highest-share focal, ±X% via promo depth,
+# all regime-on store-weeks). The old two-scenario split — own-price WMPE from
+# `single_share_highest`, substitution cosine from `brand_smaller` — is RETIRED
+# with the cosine (M-1.2). A regular-price ±X% move is the EXOGENOUS control and
+# belongs in the appendix, NOT the headline (not built this pass). Headline
+# *cells* for the README leaderboard are the two complex endogeneity-on cells
+# (both families).
+HEADLINE_INTERVENTION = "sweep_single_share_highest_plus10"
+MAIN_LEADERBOARD_CELL_TYPES = (
+    "complex_log_log_endogenous",
+    "complex_covariance_probit_endogenous",
+)
+
+
+def _load_cell(cell_dir: Path) -> dict[str, Any]:
+    # Released cells carry a sanitized scoring config (`release/
+    # scoring_params.json`: model family, eval-window length, benchmark
+    # version — nothing else); maintainer-side full outputs fall back to the
+    # resolved run config.
+    params_path = cell_dir / "release" / "scoring_params.json"
+    if params_path.exists():
+        cfg = json.loads(params_path.read_text())
+    else:
+        cfg = json.loads(
+            (cell_dir / "reports" / "run_config_resolved.json").read_text()
+        )["config"]
+    family = cfg["benchmark_family"]["active_cell"]["model_family"]
+    # Scoring needs the hidden full panel (Layer-1 observed-sales truth lives
+    # there; the public file is the training window only). Available on dev
+    # cells by design; on eval cells only the maintainer has it.
+    transactions_full = pd.read_csv(cell_dir / "hidden" / "transactions_full_hidden.csv")
+    eval_weeks = sorted(transactions_full["week"].unique())[
+        -int(cfg["simulation"]["counterfactual_eval_weeks"]) :
+    ]
+    training = transactions_full[~transactions_full["week"].isin(set(eval_weeks))]
+    return {
+        "cfg": cfg,
+        "family": family,
+        "transactions_full": transactions_full,
+        "training": training,
+        "eval_weeks": [int(w) for w in eval_weeks],
+    }
+
+
+def _truth_frames_by_intervention(cell_dir: Path) -> dict[str, pd.DataFrame]:
+    frames: dict[str, pd.DataFrame] = {}
+    # Participant scoring covers the 14 protocol interventions only. The two
+    # legacy gate interventions (bundled top-N, single rank-1) are DGP
+    # construction fixtures — they stay out of the participant surface.
+    path = cell_dir / "hidden" / "counterfactual_sweep_truth_hidden.csv"
+    if path.exists():
+        frame = pd.read_csv(path)
+        for intervention_id, group in frame.groupby("intervention_id"):
+            frames[str(intervention_id)] = group.reset_index(drop=True)
+    return frames
+
+
+def _load_headline_context(cell_dir: Path) -> dict[str, Any]:
+    """Public sweep context (focal identification only, M-1.4).
+
+    The headline is geometry-BLIND (M-1.4): no distance matrix / products_order
+    is read anywhere in Layer 3. Only the public sweep context is needed, to map
+    each intervention to its focal product via ``focal_from_context``.
+    """
+    context_path = cell_dir / "public" / "counterfactual_sweep_context_public.csv"
+    context = pd.read_csv(context_path) if context_path.exists() else None
+    return {"context": context}
+
+
+def score_layer1(cell_dir: Path, cell: dict[str, Any], submission_path: Path) -> dict[str, Any]:
+    predictions = _read_submission(submission_path, LAYER1_COLUMNS, "Layer 1 (demand prediction)")
+    truth = build_demand_truth(cell["transactions_full"], cell["eval_weeks"])
+    weights = revenue_weights(cell["training"])
+    return demand_prediction_scores(predictions, truth, weights)
+
+
+def score_layer2(cell_dir: Path, cell: dict[str, Any], submission_path: Path) -> dict[str, Any]:
+    submitted = _read_submission(submission_path, LAYER2_COLUMNS, "Layer 2 (elasticity)")
+    truth_long = pd.read_csv(cell_dir / "hidden" / "elasticity_truth_hidden.csv")
+    eps_star = truth_long.pivot(
+        index="affected_product_id", columns="priced_product_id", values="epsilon_star"
+    )
+    # Incidence amendment (2026-06-11): the scored truth is the TOTAL
+    # elasticity; the conditional (fixed-M switching) matrix, when the DGP
+    # emits it, drives the substitute/complement/unrelated stratification.
+    eps_star_conditional = None
+    if "epsilon_star_conditional" in truth_long.columns:
+        eps_star_conditional = truth_long.pivot(
+            index="affected_product_id",
+            columns="priced_product_id",
+            values="epsilon_star_conditional",
+        )
+    eps_hat = submitted.pivot(
+        index="affected_product_id", columns="priced_product_id", values="elasticity"
+    )
+    weights = revenue_weights(cell["training"])
+    return elasticity_scores(
+        eps_hat, eps_star, weights, eps_star_conditional=eps_star_conditional
+    )
+
+
+def score_layer3(
+    cell_dir: Path,
+    cell: dict[str, Any],
+    submission_path: Path,
+    submission_name: str,
+    dump_values: Path | None = None,  # retired with the cosine dump (M-1.2); the deferred M-1.10 per-store-week error appendix will repurpose this hook.
+) -> dict[str, Any]:
+    """Decomposed Layer-3 headline (M-1.* FINAL, 2026-07-04).
+
+    The full-vector cosine is DELETED (M-1.2). Every intervention is scored on the
+    geometry-blind decomposition (M-1.4) — own-price signed WMPE (focal Δq) +
+    substitution unsigned WAPE (competitor-only Δq), both category-netted via
+    ΔM=ΣΔq, both pooled (micro-averaged) over store-weeks (M-1.6, M-1.7). The
+    headline reads BOTH axes from the SINGLE scenario
+    `sweep_single_share_highest_plus10` (M-1.11).
+    """
+    deltas = _read_submission(submission_path, LAYER3_COLUMNS, "Layer 3 (counterfactual)")
+    truths = _truth_frames_by_intervention(cell_dir)
+    geom = _load_headline_context(cell_dir)
+
+    interventions: list[dict[str, Any]] = []
+    for intervention_id, truth in sorted(truths.items()):
+        sub = deltas[deltas["intervention_id"] == intervention_id]
+        merged = truth.merge(
+            sub[["product_id", "store_id", "week", "predicted_delta_units"]],
+            on=["product_id", "store_id", "week"],
+            how="left",
+        )
+        # Omitted rows score as delta-hat = 0 (no predicted demand change) —
+        # omission cannot hide a store-week (format doc).
+        merged["dq_pred"] = pd.to_numeric(
+            merged["predicted_delta_units"], errors="coerce"
+        ).fillna(0.0)
+        merged["dq_true"] = merged["true_counterfactual_units"].astype(float) - merged[
+            "baseline_units"
+        ].astype(float)
+
+        focal = (
+            focal_from_context(geom["context"], intervention_id)
+            if geom["context"] is not None
+            else None
+        )
+        if focal is None:
+            result: dict[str, Any] = {
+                "intervention_id": intervention_id,
+                "status": "no_focal_in_public_context",
+            }
+        else:
+            result = {
+                "intervention_id": intervention_id,
+                **decomposed_headline(
+                    merged[["product_id", "store_id", "week", "baseline_units", "dq_true", "dq_pred"]],
+                    focal,
+                ),
+                "n_submitted_rows": int(len(sub)),
+                "n_truth_rows_without_submission": int(
+                    merged["predicted_delta_units"].isna().sum()
+                ),
+            }
+        interventions.append(result)
+
+    # The redesigned headline reads BOTH axes from ONE scenario (M-1.11).
+    by_id = {r.get("intervention_id"): r for r in interventions}
+    hl = by_id.get(HEADLINE_INTERVENTION) or {}
+    return {
+        "metric": "v2_2_layer3_wmpe_wape_pair",
+        "spec_reference": "decisions.md 2026-07-04 METRICS FINAL (M-1.*, M-6.1)",
+        "headline_components": ["own_price_wmpe", "substitution_wape"],
+        "headline": {
+            "scenario": HEADLINE_INTERVENTION,
+            "rank_metric": "own_price.abs_own_price_wmpe",   # |signed WMPE| ascending (M-6.1 + 07-04 resolution)
+            "own_price": {
+                "own_price_wmpe": hl.get("own_price_wmpe"),
+                "n_store_weeks_focal_missing": hl.get("n_store_weeks_focal_missing"),
+            },
+            "substitution": {
+                "substitution_wape": hl.get("substitution_wape"),
+                "n_store_weeks_scored": hl.get("n_store_weeks_scored"),
+            },
+        },
+        "interventions": interventions,
+    }
+
+
+# Tissue own-price band (Precondition 5): the module default DEFAULT_OWN_BAND =
+# (-5.0, -0.2) is the WIDE generic-CPG prior; facial tissue pins (-3.0, -1.0).
+# Single source of truth — the citation-grounded FACIAL_TISSUE_OWN_BAND (Hoch,
+# Kim, Montgomery & Rossi 1995 tissue ≈ -2; Tellis 1988 mean -1.76; the -1.8
+# calibration anchor; contains the pre-registered standard reference rule -1.35).
+# Passed EXPLICITLY at every layer4_validity call site.
+LAYER4_TISSUE_BAND = FACIAL_TISSUE_OWN_BAND
+
+
+def _weighted_fraction(pairs: list[tuple[float | None, float | None]]) -> float | None:
+    """Counts-weighted mean of per-focal fractions (M-4.1 pair/panel reporting).
+
+    Each ``(fraction, weight)`` pair carries the focal's fraction (e.g.
+    ``frac_correct_sign``) and the count the underlying check returns
+    (``n_evaluated`` / ``total_competitor_mass`` / ``n_store_weeks``). ``None``
+    fractions (or non-positive weights) are dropped. Returns ``None`` if nothing
+    contributes.
+    """
+    num = 0.0
+    den = 0.0
+    for frac, weight in pairs:
+        if frac is None or weight is None or weight <= 0:
+            continue
+        num += float(frac) * float(weight)
+        den += float(weight)
+    return (num / den) if den > 0 else None
+
+
+def score_layer4(cell: dict[str, Any], submission_path: Path) -> dict[str, Any]:
+    """Actual-data-arm validity scoring (M-4.1, M-4.2, M-4.3).
+
+    Pure wiring around the FROZEN ``causal_demand_metrics.layer4_validity`` bundle
+    (M-4.1 — no edit to that module). Consumes ONLY the public
+    ``cell["sweep_context"]`` + the submitted Δq (LAYER4_ACTUAL_FILE); reads NO
+    hidden truth, NO ``cell_dir``, NO ``hidden/`` file. For each focal in the full
+    own-price sweep (every product moved once, BOTH signs — M-4.3) it runs the
+    label-free own-sign / substitution-sign / monotonicity checks, and derives an
+    own-elasticity range coverage from the submitted Δq (NO elasticity file, M-4.2)
+    over the full J-diagonal, scored against the EXPLICIT tissue band (-3.0, -1.5).
+    """
+    deltas = _read_submission(submission_path, LAYER3_COLUMNS, "Layer 4 (actual validity)")
+    context = cell["sweep_context"]
+
+    # Group the sweep interventions by focal product, splitting each focal's ±
+    # pair by the label-free sign reader (M-4.3). `focal_from_context` maps an
+    # intervention_id to its focal; `price_direction_from_context` gives +1/-1.
+    per_focal: dict[str, dict[str, Any]] = {}
+    for intervention_id in context["intervention_id"].astype(str).unique():
+        focal = focal_from_context(context, intervention_id)
+        if focal is None:
+            continue
+        sign = price_direction_from_context(context, intervention_id)
+        if sign is None:
+            continue
+        # LEFT-merge submitted Δq onto the sweep rows for this intervention;
+        # omitted rows coerce to dq_pred = 0.0 (same omission rule as Layer 3).
+        rows = context[context["intervention_id"].astype(str) == intervention_id][
+            ["product_id", "store_id", "week", "baseline_units", "baseline_price", "intervention_price"]
+        ].copy()
+        sub = deltas[deltas["intervention_id"].astype(str) == intervention_id]
+        frame = rows.merge(
+            sub[["product_id", "store_id", "week", "predicted_delta_units"]],
+            on=["product_id", "store_id", "week"],
+            how="left",
+        )
+        frame["dq_pred"] = pd.to_numeric(
+            frame["predicted_delta_units"], errors="coerce"
+        ).fillna(0.0)
+        slot = "up" if sign > 0 else "dn"
+        per_focal.setdefault(str(focal), {})[slot] = frame
+
+    # Derived own-elasticity diagonal (M-4.2, M-4.3) — NO elasticity file. For
+    # each focal, eps_j = (Σ dq_pred_focal / Σ baseline_units_focal) / pct_move,
+    # using the +x% leg consistently so eps_j is a single scalar per product.
+    focals = sorted(per_focal.keys())
+    eps_by_focal: dict[str, float] = {}
+    for focal, slots in per_focal.items():
+        leg = slots["up"] if "up" in slots else slots.get("dn")
+        if leg is None:
+            continue
+        foc = leg[leg["product_id"].astype(str) == str(focal)]
+        base_sum = float(pd.to_numeric(foc["baseline_units"], errors="coerce").fillna(0.0).sum())
+        dq_sum = float(pd.to_numeric(foc["dq_pred"], errors="coerce").fillna(0.0).sum())
+        bp = pd.to_numeric(foc["baseline_price"], errors="coerce")
+        ip = pd.to_numeric(foc["intervention_price"], errors="coerce")
+        pct = ((ip - bp) / bp).replace([float("inf"), float("-inf")], pd.NA).dropna()
+        if base_sum == 0 or pct.empty or float(pct.iloc[0]) == 0.0:
+            continue
+        eps_by_focal[focal] = (dq_sum / base_sum) / float(pct.iloc[0])
+
+    # J×J diagonal frame; off-diagonal NaN (own_elasticity_range_coverage reads
+    # only np.diag). Computed ONCE over the full diagonal — approach (a): pass
+    # eps_hat=None inside the per-focal loop, call range-coverage once here.
+    if focals:
+        diag = pd.DataFrame(
+            np.full((len(focals), len(focals)), np.nan),
+            index=focals,
+            columns=focals,
+        )
+        for focal in focals:
+            if focal in eps_by_focal:
+                diag.loc[focal, focal] = eps_by_focal[focal]
+        own_elasticity_range = own_elasticity_range_coverage(diag, band=LAYER4_TISSUE_BAND)
+    else:
+        own_elasticity_range = own_elasticity_range_coverage(
+            pd.DataFrame(), band=LAYER4_TISSUE_BAND
+        )
+
+    # Per-focal label-free checks via the FROZEN bundle (M-4.1). eps_hat=None in
+    # the loop (range coverage is the single de-duped call above); band passed
+    # EXPLICITLY (Precondition 5) though it is a no-op when eps_hat is None.
+    own_sign_pairs: list[tuple[float | None, float | None]] = []
+    sub_sign_pairs: list[tuple[float | None, float | None]] = []
+    count_pairs: list[tuple[float | None, float | None]] = []
+    mono_pairs: list[tuple[float | None, float | None]] = []
+    for focal in focals:
+        slots = per_focal[focal]
+        frame_up = slots.get("up")
+        frame_dn = slots.get("dn")
+        if frame_up is not None:
+            scored = validity_scores(
+                frame_up,
+                focal,
+                price_increase=True,        # score the +x% leg; the -x% is the pair
+                eps_hat=None,               # range coverage de-duped (approach a)
+                band=LAYER4_TISSUE_BAND,    # tissue band, EXPLICIT (Precondition 5)
+                paired_frame=frame_dn,      # enables monotonicity across the ± pair (M-4.3)
+            )
+        elif frame_dn is not None:
+            scored = validity_scores(
+                frame_dn,
+                focal,
+                price_increase=False,
+                eps_hat=None,
+                band=LAYER4_TISSUE_BAND,
+            )
+        else:
+            continue
+        osign = scored.get("own_price_sign", {})
+        own_sign_pairs.append((osign.get("frac_correct_sign"), osign.get("n_evaluated")))
+        ssign = scored.get("substitution_sign", {})
+        sub_sign_pairs.append(
+            (ssign.get("frac_redistribution_mass_correct"), ssign.get("total_competitor_mass"))
+        )
+        # #86: unweighted per-competitor count (weight = #competitor observations),
+        # so many small wrong competitors can't hide behind one big correct one.
+        count_pairs.append(
+            (
+                ssign.get("frac_competitors_correct_count"),
+                ssign.get("n_competitor_observations_scored"),
+            )
+        )
+        mono = scored.get("monotonicity")
+        if mono is not None:
+            mono_pairs.append((mono.get("frac_consistent"), mono.get("n_store_weeks")))
+
+    result: dict[str, Any] = {
+        "metric": "v0_layer4_validity_actual",
+        "own_price_sign": {
+            "frac_correct_sign": _weighted_fraction(own_sign_pairs),
+        },
+        "substitution_sign": {
+            "frac_redistribution_mass_correct": _weighted_fraction(sub_sign_pairs),
+            "frac_competitors_correct_count": _weighted_fraction(count_pairs),
+        },
+        "own_elasticity_range": own_elasticity_range,
+        "monotonicity": {
+            "frac_consistent": _weighted_fraction(mono_pairs),
+        },
+        "n_focals": len(focals),
+        "band": list(LAYER4_TISSUE_BAND),
+    }
+    # #86 Layer-4 refinement: fold the panel rates into a PASS/WARN/FAIL verdict.
+    # coherence_gate reads own_price_sign / substitution_sign / own_elasticity_range
+    # / monotonicity off the assembled result — the actual-arm's headline verdict.
+    result["gate"] = coherence_gate(result)
+    return result
+
+
+def _result_header(cell: dict[str, Any], cell_slug: str, cell_dir: Any) -> dict[str, Any]:
+    """The shared scores-dict header (used by both `evaluate` and
+    `evaluate_prebuilt`). Reproduces the synthetic header VERBATIM so the
+    synthetic path stays byte-identical; `cell_dir` is echoed as a string when a
+    dir exists, else `None` (a pre-built actual fixture has no dir on disk)."""
+    # schema_version 2 (2026-06-11, purchase-incidence re-rulings): L2 class
+    # stratification moves to the conditional basis when the truth carries it;
+    # conservation diagnostic becomes the conditional identity; scores gain
+    # benchmark_version. Submission CSV formats are UNCHANGED from version 1.
+    return {
+        "schema_version": 2,
+        "benchmark_version": cell["cfg"].get("benchmark_version", "pre-incidence-unversioned"),
+        "submission_name": None,  # set by caller
+        "cell_dir": str(cell_dir) if cell_dir is not None else None,
+        "cell_slug": cell_slug,
+        "family": cell["family"],
+        "evaluation_weeks": cell["eval_weeks"],
+        "headline_statistic": "pooled_own_wmpe_substitution_wape",
+        "spec_reference": "proposals/v2_2_metric_implementation_spec.md + Proposal v2.2",
+    }
+
+
+def evaluate(
+    cell_dir: Path,
+    submission_dir: Path,
+    submission_name: str,
+    dump_values: Path | None = None,
+) -> dict[str, Any]:
+    cell = _load_cell(cell_dir)
+    scores: dict[str, Any] = _result_header(cell, Path(cell_dir).name, cell_dir)
+    scores["submission_name"] = submission_name
+    # A malformed file in one layer must not sink the others: invalid layers
+    # report a clear status, well-formed layers still score.
+    for layer, filename, scorer in (
+        ("layer1_demand_prediction", LAYER1_FILE, score_layer1),
+        ("layer2_elasticity_estimation", LAYER2_FILE, score_layer2),
+    ):
+        path = submission_dir / filename
+        if not path.exists():
+            scores[layer] = {"status": "not_submitted"}
+            continue
+        try:
+            scores[layer] = scorer(cell_dir, cell, path)
+        except SubmissionFormatError as exc:
+            scores[layer] = {"status": "invalid_format", "error": str(exc)}
+    layer3_path = submission_dir / LAYER3_FILE
+    if not layer3_path.exists():
+        scores["layer3_counterfactual"] = {"status": "not_submitted"}
+    else:
+        try:
+            scores["layer3_counterfactual"] = score_layer3(
+                cell_dir, cell, layer3_path, submission_name, dump_values=dump_values
+            )
+        except SubmissionFormatError as exc:
+            scores["layer3_counterfactual"] = {"status": "invalid_format", "error": str(exc)}
+    return scores
+
+
+def evaluate_prebuilt(
+    cell: dict[str, Any],
+    submission_dir: Path,
+    submission_name: str,
+    dump_values: Path | None = None,
+) -> dict[str, Any]:
+    """Actual-arm entry point (M-0.1, M-3.1) — the D5 resolution.
+
+    Takes the PRE-BUILT actual-cell dict directly (from ``load_actual_cell`` /
+    ``build_fixture_actual_cell``, spec 09) — NO ``_load_cell``, NO ``cell_dir``,
+    NO ``hidden/`` read. Scores Layer 1 (held-out forecast, runs on both arms,
+    M-3.1) and Layer 4 (label-free validity, M-4.1), and stamps the truth-requiring
+    layers ``not_applicable_actual_data`` (M-0.1). Synthetic cells NEVER reach here
+    — they go through ``evaluate(cell_dir, …)``, unchanged.
+    """
+    if cell.get("data_arm") != "actual":
+        raise ValueError(
+            "evaluate_prebuilt is the actual-arm path; "
+            "synthetic cells use evaluate(cell_dir, …)"
+        )
+    cell_slug = cell.get("cell_slug", cell.get("family", "actual"))
+    scores: dict[str, Any] = _result_header(cell, cell_slug, cell.get("cell_dir"))
+    scores["submission_name"] = submission_name
+
+    # L1 (M-3.1): the EXISTING scorer, UNCHANGED. score_layer1 never dereferences
+    # cell_dir (Precondition 2) → pass None; cell["transactions_full"/eval_weeks/
+    # training] are the real held-out observed sales.
+    layer1_path = submission_dir / LAYER1_ACTUAL_FILE
+    if not layer1_path.exists():
+        scores["layer1_demand_prediction"] = {"status": "not_submitted"}
+    else:
+        try:
+            scores["layer1_demand_prediction"] = score_layer1(None, cell, layer1_path)
+        except SubmissionFormatError as exc:
+            scores["layer1_demand_prediction"] = {"status": "invalid_format", "error": str(exc)}
+
+    # L4 (M-4.1): label-free validity on the public sweep + submitted Δq.
+    layer4_path = submission_dir / LAYER4_ACTUAL_FILE
+    if not layer4_path.exists():
+        scores["layer4_validity_actual"] = {"status": "not_submitted"}
+    else:
+        try:
+            scores["layer4_validity_actual"] = score_layer4(cell, layer4_path)
+        except SubmissionFormatError as exc:
+            scores["layer4_validity_actual"] = {"status": "invalid_format", "error": str(exc)}
+
+    # Truth-requiring layers do not apply on real data (M-0.1 — no hidden truth).
+    scores["layer2_elasticity_estimation"] = {"status": "not_applicable_actual_data"}
+    scores["layer3_counterfactual"] = {"status": "not_applicable_actual_data"}
+    scores["data_arm"] = "actual"
+    return scores
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--cell-dir", required=True, type=Path)
+    parser.add_argument("--submission-dir", required=True, type=Path)
+    parser.add_argument("--submission-name", default="submission")
+    parser.add_argument("--out", type=Path, default=None)
+    parser.add_argument(
+        "--dump-values",
+        type=Path,
+        default=None,
+        help="Optional CSV path for the raw per-store-week cosines (density-plot input).",
+    )
+    parser.add_argument(
+        "--reference-scores",
+        type=Path,
+        default=None,
+        help="Directory of reference scores.json files (ships with the benchmark); "
+        "prints a ranked table with your model placed among them.",
+    )
+    args = parser.parse_args()
+    scores = evaluate(
+        args.cell_dir, args.submission_dir, args.submission_name, dump_values=args.dump_values
+    )
+    payload = json.dumps(scores, indent=2, default=float)
+    if args.out:
+        args.out.write_text(payload, encoding="utf-8")
+        print(f"wrote {args.out}")
+    else:
+        print(payload)
+    if args.reference_scores is not None:
+        from metrics.leaderboard import leaderboard_rows
+
+        reference_payloads = [
+            json.loads(path.read_text())
+            for path in sorted(args.reference_scores.glob("*.json"))
+        ]
+        cell_slug = Path(args.cell_dir).name
+        same_cell = [
+            p for p in reference_payloads if p.get("cell_slug", Path(p.get("cell_dir", "")).name) == cell_slug
+        ]
+        table = leaderboard_rows(same_cell + [scores])
+        print(f"\n=== your placement on {cell_slug} (references + you) ===")
+        print(table.to_string(index=False))
+
+
+if __name__ == "__main__":
+    main()
