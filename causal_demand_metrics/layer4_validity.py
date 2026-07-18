@@ -463,7 +463,7 @@ def validity_scores(
     real POS data — no hidden truth is consumed.
     """
     out: dict[str, Any] = {
-        "metric": "v0_layer4_validity",
+        "metric": "layer4_validity",
         "own_price_sign": own_price_sign_validity(
             frame, focal, price_increase=price_increase, n_boot=n_boot, seed=seed
         ),

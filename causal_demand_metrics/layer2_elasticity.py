@@ -273,7 +273,7 @@ def elasticity_scores(
         "classification_basis": classification_basis,
     }
     return {
-        "metric": "v2_2_layer2_elasticity_estimation",
+        "metric": "layer2_elasticity_estimation",
         "truth_definition": "total_effect_incidence_plus_switching",
         "n_products": j,
         "n_matrix_entries_missing_in_submission": n_missing,

@@ -94,7 +94,7 @@ def demand_prediction_scores(
         wmape = float((w * per_product["abs_err"]).sum() / denominator)
         wmpe = float((w * per_product["signed_err"]).sum() / denominator)
     return {
-        "metric": "v2_2_layer1_demand_prediction",
+        "metric": "layer1_demand_prediction",
         "demand_wmape": wmape,
         "demand_wmpe": wmpe,
         "n_truth_rows": int(len(truth)),

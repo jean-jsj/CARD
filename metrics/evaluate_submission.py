@@ -252,7 +252,7 @@ def score_layer3(
     by_id = {r.get("intervention_id"): r for r in interventions}
     hl = by_id.get(HEADLINE_INTERVENTION) or {}
     return {
-        "metric": "v2_2_layer3_wmpe_wape_pair",
+        "metric": "layer3_wmpe_wape_pair",
         "spec_reference": "metrics/SUBMISSION_FORMAT.md (Layer-3 headline)",
         "headline_components": ["own_price_wmpe", "substitution_wape"],
         "headline": {
@@ -427,7 +427,7 @@ def score_layer4(cell: dict[str, Any], submission_path: Path) -> dict[str, Any]:
             mono_pairs.append((mono.get("frac_consistent"), mono.get("n_store_weeks")))
 
     result: dict[str, Any] = {
-        "metric": "v0_layer4_validity_actual",
+        "metric": "layer4_validity_actual",
         "own_price_sign": {
             "frac_correct_sign": _weighted_fraction(own_sign_pairs),
         },
