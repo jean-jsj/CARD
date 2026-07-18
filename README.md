@@ -1,16 +1,8 @@
 # CARD — Causal Recovery of Demand
 
-**Can a model that fits observed demand well still recover causal price
-response, substitution, and counterfactual outcomes when prices and promotions
-are endogenous?**
+**Can a model that fits observed demand well still recover causal price response, substitution, and counterfactual outcomes when prices and promotions are endogenous?**
 
-This benchmark pairs synthetic retail scanner panels with a multimodal product
-surface (marketing-copy product descriptions that carry the true substitution
-geometry). Demand is simulated from a known data-generating process; prices and
-promotions respond to hidden demand shocks in half the cells, so estimators
-that ignore endogeneity fit the observed data well and still get the
-counterfactuals wrong. True elasticities and counterfactual outcomes are hidden
-and used only for scoring.
+This benchmark pairs synthetic retail scanner panels with a multimodal product surface (marketing-copy product descriptions that carry the true substitution geometry). Demand is simulated from a known data-generating process; prices and promotions respond to hidden demand shocks in half the cells, so estimators that ignore endogeneity fit the observed data well and still get the counterfactuals wrong. True elasticities and counterfactual outcomes are hidden and used only for scoring.
 
 ## The 8-cell grid
 
@@ -20,32 +12,19 @@ and used only for scoring.
 | Endogeneity | **off** (control) / **on** (promotion *depth* responds to a hidden demand shock; cost-based instruments stay valid) |
 | Market complexity | **simple** (3 products, 12 stores) / **complex** (40 products, 731 stores, embedding-based substitution geometry) |
 
-Panels cover **156 weeks** — 140 public training weeks plus 16 holdout-context
-weeks whose prices/promotions are public but whose sales are withheld. The two
-released instruments are `supply_cost_proxy` (primary) and `promo_cost`
-(secondary). Complex-cell products each carry a `product_text` description;
-simple cells ship the same schema with empty text. Store markets and brand
-codes are pseudonymized.
+Panels cover **156 weeks** — 140 public training weeks plus 16 holdout-context weeks whose prices/promotions are public but whose sales are withheld. The two released instruments are `supply_cost_proxy` (primary) and `promo_cost` (secondary). Complex-cell products each carry a `product_text` description; simple cells ship the same schema with empty text. Store markets and brand codes are pseudonymized.
 
 ## Data
 
-The data are hosted on Hugging Face: **`jean-jsj/CARD`**
-*(link goes live with the v0.1 release)*.
+The data are hosted on Hugging Face: **`jean-jsj/CARD`** *(link goes live with the v0.1 release)*.
 
 Each cell directory contains:
 
-- `public/` — everything your model may consume: `transactions_train_public.csv`,
-  `transactions_holdout_context_public.csv`, `products_public.csv`,
-  `stores_public.csv`, and `counterfactual_sweep_context_public.csv` (the 14
-  scored interventions). Markets and brand codes are pseudonymized.
-- `hidden/` — **dev seed only**: the scoring truth (holdout sales, elasticity
-  matrix, counterfactual Δq). Exists so you can score locally and instantly.
-  **Data-access rule: `hidden/` is never model input.**
+- `public/` — everything your model may consume: `transactions_train_public.csv`, `transactions_holdout_context_public.csv`, `products_public.csv`, `stores_public.csv`, and `counterfactual_sweep_context_public.csv` (the 14 scored interventions). Markets and brand codes are pseudonymized.
+- `hidden/` — **dev seed only**: the scoring truth (holdout sales, elasticity matrix, counterfactual Δq). Exists so you can score locally and instantly. **Data-access rule: `hidden/` is never model input.**
 - `release/` — per-cell manifest (SHA-256 per file), release notes, datasheet.
 
-**Dev / eval split.** Dev **seed 1** ships with scoring truth for offline
-iteration. Eval seeds ship public-only; their truth stays with the maintainer,
-who computes the leaderboard column (mean ± spread across eval seeds).
+**Dev / eval split.** Dev **seed 1** ships with scoring truth for offline iteration. Eval seeds ship public-only; their truth stays with the maintainer, who computes the leaderboard column (mean ± spread across eval seeds).
 
 ## Quickstart
 
@@ -58,9 +37,7 @@ python examples/download_data.py --cell complex_log_log_endogenous_seed001
 python examples/quickstart.py --cell-dir benchmark/dev/complex_log_log_endogenous_seed001
 ```
 
-`quickstart.py` builds a deliberately naive baseline submission from the public
-files and scores it — you should beat it easily. Submission file contracts:
-[`metrics/SUBMISSION_FORMAT.md`](metrics/SUBMISSION_FORMAT.md).
+`quickstart.py` builds a deliberately naive baseline submission from the public files and scores it — you should beat it easily. Submission file contracts: [`metrics/SUBMISSION_FORMAT.md`](metrics/SUBMISSION_FORMAT.md).
 
 ## What is scored
 
@@ -71,27 +48,9 @@ files and scores it — you should beat it easily. Submission file contracts:
 | **3 — counterfactuals (headline)** | Do you predict Δq under a +10% price move? | signed **own-price WMPE** + unsigned **substitution WAPE** |
 | **4 — validity (actual arm)** | Are your real-data predictions causally coherent? | label-free sign/band/monotonicity checks |
 
-The headline is Layer 3, read off one flagship scenario: the leaderboard ranks
-by |own-price WMPE| (identification bias, 0 = unbiased), with substitution WAPE
-alongside (competitor-redistribution error; predicting "no change" scores the
-full mass). Both are category-netted so a category-wide shift can't masquerade
-as substitution. The interesting comparison is *endogeneity-on vs -off*: a
-purely predictive model can win Layer 1 and still fail Layer 3 in the
-endogeneity-on cells.
+The headline is Layer 3, read off one flagship scenario: the leaderboard ranks by |own-price WMPE| (identification bias, 0 = unbiased), with substitution WAPE alongside (competitor-redistribution error; predicting "no change" scores the full mass). Both are category-netted so a category-wide shift can't masquerade as substitution. The interesting comparison is *endogeneity-on vs -off*: a purely predictive model can win Layer 1 and still fail Layer 3 in the endogeneity-on cells.
 
-The benchmark also runs an **actual-data arm** (Layer 1 + Layer 4) on a real
-point-of-sale panel: the **Dominick's Finer Foods** scanner data published by
-the [Kilts Center for Marketing](https://www.chicagobooth.edu/research/kilts/research-data/dominicks)
-(Chicago Booth), **Bathroom Tissues** category — the closest real analog to
-the synthetic facial-tissue category. The data are free for academic research
-(attribution to the Kilts Center required) and are not redistributed here:
-download the category files from the Kilts Center and point
-`--actual-data-root` at them; the loader
-([`metrics/actual_data.py`](metrics/actual_data.py)) is deterministic, so
-every participant reconstructs the identical panel. Real data has no
-counterfactual truth, so Layers 2–3 are synthetic-arm only — and because the
-Dominick's files are public, the actual-arm Layer 1 is an honor-system
-diagnostic rather than an adversarially-hidden target.
+The benchmark also runs an **actual-data arm** (Layer 1 + Layer 4) on a real point-of-sale panel: the **Dominick's Finer Foods** scanner data published by the [Kilts Center for Marketing](https://www.chicagobooth.edu/research/kilts/research-data/dominicks) (Chicago Booth), **Bathroom Tissues** category — the closest real analog to the synthetic facial-tissue category. The data are free for academic research (attribution to the Kilts Center required) and are not redistributed here: download the category files from the Kilts Center and point `--actual-data-root` at them; the loader ([`metrics/actual_data.py`](metrics/actual_data.py)) is deterministic, so every participant reconstructs the identical panel. Real data has no counterfactual truth, so Layers 2–3 are synthetic-arm only — and because the Dominick's files are public, the actual-arm Layer 1 is an honor-system diagnostic rather than an adversarially-hidden target.
 
 ## Leaderboard
 
@@ -99,18 +58,11 @@ diagnostic rather than an adversarially-hidden target.
 |---|---|---|---|
 | *reference baselines land with v0.2* | | | |
 
-To submit an entry, see [CONTRIBUTING.md](CONTRIBUTING.md): score locally on
-the dev seed, then open a PR with your predictions; the maintainer scores the
-eval seeds and updates this table.
+To submit an entry, see [CONTRIBUTING.md](CONTRIBUTING.md): score locally on the dev seed, then open a PR with your predictions; the maintainer scores the eval seeds and updates this table.
 
 ## The generator is withheld — verifiably
 
-The DGP code and calibrated parameters are not published while the evaluation
-phase runs (publishing them would let anyone regenerate the hidden truth). The
-construction is documented at the equation level in the paper appendix, and a
-SHA-256 commitment to the exact frozen generator source is published in
-[`GENERATOR_COMMITMENT.md`](GENERATOR_COMMITMENT.md); the archive will be
-released to match that hash after the evaluation phase.
+The DGP code and calibrated parameters are not published while the evaluation phase runs (publishing them would let anyone regenerate the hidden truth). The construction is documented at the equation level in the paper appendix, and a SHA-256 commitment to the exact frozen generator source is published in [`GENERATOR_COMMITMENT.md`](GENERATOR_COMMITMENT.md); the archive will be released to match that hash after the evaluation phase.
 
 ## Repository layout
 
@@ -123,7 +75,4 @@ released to match that hash after the evaluation phase.
 
 ## License & citation
 
-Code: **Apache-2.0** ([LICENSE](LICENSE)). Data: **CC BY 4.0** (declared on the
-Hugging Face dataset card). The panels are synthetic, calibrated to moments of
-the IRI academic scanner dataset; no real transactions are included. Cite via
-[CITATION.cff](CITATION.cff).
+Code: **Apache-2.0** ([LICENSE](LICENSE)). Data: **CC BY 4.0** (declared on the Hugging Face dataset card). The panels are synthetic, calibrated to moments of the IRI academic scanner dataset; no real transactions are included. Cite via [CITATION.cff](CITATION.cff).

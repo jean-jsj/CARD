@@ -1,14 +1,10 @@
 # metrics/ — scoring harness
 
-The **participant-facing scorer**: it grades a submission against a benchmark
-cell and assembles the leaderboard, built on `causal_demand_metrics` (the metric
-math; single source of truth). No statistical tests — the deliverable is a score
-per model and a leaderboard.
+The **participant-facing scorer**: it grades a submission against a benchmark cell and assembles the leaderboard, built on `causal_demand_metrics` (the metric math; single source of truth). No statistical tests — the deliverable is a score per model and a leaderboard.
 
 ## What you submit
 
-Up to three CSVs per cell on the synthetic arm, two on the actual-data arm
-(see [`SUBMISSION_FORMAT.md`](SUBMISSION_FORMAT.md)):
+Up to three CSVs per cell on the synthetic arm, two on the actual-data arm (see [`SUBMISSION_FORMAT.md`](SUBMISSION_FORMAT.md)):
 
 | File | Contents |
 |---|---|
@@ -18,35 +14,19 @@ Up to three CSVs per cell on the synthetic arm, two on the actual-data arm
 | `layer1_actual_predictions.csv` | (actual arm) Forecast units on the real POS panel. |
 | `layer4_actual_deltas.csv` | (actual arm) Predicted Δq under the public own-price sweep. |
 
-Any layer you omit scores `not_submitted`; a malformed file scores
-`invalid_format` (the others still score). The CSV formats are stable across
-metric versions.
+Any layer you omit scores `not_submitted`; a malformed file scores `invalid_format` (the others still score). The CSV formats are stable across metric versions.
 
 ## What you get back
 
-- **Headline (Layer 3):** two pooled numbers on the flagship +10% scenario,
-  both category-netted and micro-averaged — **own-price response (signed
-  WMPE)** on the focal product's Δq, and **substitution (unsigned WAPE)** on
-  the competitor Δq. The leaderboard ranks by **|own-price WMPE| ascending**
-  (closest-to-zero identification bias first); the substitution WAPE rides
-  alongside. Both are also reported per intervention across the full
-  14-intervention sweep.
-- **Additional outputs:** an L1/L2 diagnostics CSV (which capability is
-  missing) and the L3 cell × 14-intervention matrix (which scenarios hurt
-  you).
-- **Actual-data arm:** Layer 1 (same WMAPE/WMPE) plus Layer 4 — label-free
-  causal-coherence checks (own-price sign, substitution sign, own-elasticity
-  band coverage, sign-flip monotonicity), each with a bootstrap CI. Layers
-  2–3 are not scored on real data (no counterfactual truth exists there).
+- **Headline (Layer 3):** two pooled numbers on the flagship +10% scenario, both category-netted and micro-averaged — **own-price response (signed WMPE)** on the focal product's Δq, and **substitution (unsigned WAPE)** on the competitor Δq. The leaderboard ranks by **|own-price WMPE| ascending** (closest-to-zero identification bias first); the substitution WAPE rides alongside. Both are also reported per intervention across the full 14-intervention sweep.
+- **Additional outputs:** an L1/L2 diagnostics CSV (which capability is missing) and the L3 cell × 14-intervention matrix (which scenarios hurt you).
+- **Actual-data arm:** Layer 1 (same WMAPE/WMPE) plus Layer 4 — label-free causal-coherence checks (own-price sign, substitution sign, own-elasticity band coverage, sign-flip monotonicity), each with a bootstrap CI. Layers 2–3 are not scored on real data (no counterfactual truth exists there).
 
 ## Release model (dev / eval split)
 
-- **Dev seed 1** ships with the scoring truth → score locally, instantly,
-  offline.
-- **Eval seeds** ship public-only; truth stays with the maintainer. The
-  README leaderboard column = headline averaged over eval seeds ± spread.
-- `hidden/` is also a **data-access rule**: models consume `public/` files
-  only. The truth files exist for scoring, never as model input.
+- **Dev seed 1** ships with the scoring truth → score locally, instantly, offline.
+- **Eval seeds** ship public-only; truth stays with the maintainer. The README leaderboard column = headline averaged over eval seeds ± spread.
+- `hidden/` is also a **data-access rule**: models consume `public/` files only. The truth files exist for scoring, never as model input.
 
 ## Quickstart
 
