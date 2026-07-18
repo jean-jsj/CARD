@@ -21,17 +21,17 @@ truth is maintainer-only) are skipped with a notice, as are cells without a
 matching submission subdirectory. A scoring error in one cell does not stop
 the others; it is reported and reflected in the exit code.
 
-Actual-data arm (M-0.1, M-6.2). SYNTHETIC cells score Layers 1/2/3 and are the
+Actual-data arm. SYNTHETIC cells score Layers 1/2/3 and are the
 ranked leaderboard. The ACTUAL-data arm (real POS panel) scores Layer 1 +
 Layer 4 only — it is PUBLIC-ONLY by design (no hidden truth EVER exists on real
 data), so it must NOT be caught by the "hidden truth absent → skip" branch that
 withholds eval-seed synthetic cells. Because an actual cell is a PRE-BUILT dict
 (`metrics.actual_data.load_actual_cell(data_root)`), not a synthetic cell dir
 discoverable under `--cells-root`, it is routed through `evaluate_prebuilt`
-(spec 10) from a separate `--actual-data-root`, NOT through `discover_cells`.
+from a separate `--actual-data-root`, NOT through `discover_cells`.
 The actual arm is a DIAGNOSTIC PANEL in its own `(cell_type, data_arm)`
-leaderboard partition — never ranked into the synthetic own-price-WMPE headline
-(M-6.2).
+leaderboard partition — never ranked into the synthetic own-price-WMPE
+headline.
 """
 
 from __future__ import annotations
@@ -126,13 +126,13 @@ def evaluate_actual_arm(
 ) -> tuple[dict[str, Any] | None, dict[str, str] | None]:
     """Score the ACTUAL-data arm (Layer 1 + Layer 4 only), never blanket-skipped.
 
-    The actual cell is a PRE-BUILT dict (`load_actual_cell`, spec 09) rather than
+    The actual cell is a PRE-BUILT dict (`load_actual_cell`) rather than
     a synthetic cell dir under `--cells-root`, so it is loaded here from
-    `actual_data_root` and routed through `evaluate_prebuilt` (spec 10) — it must
+    `actual_data_root` and routed through `evaluate_prebuilt` — it must
     NOT pass through the synthetic "hidden truth absent → skip" branch, because
-    real data has NO hidden truth by design (M-0.1). Returns `(scores, None)` on
+    real data has NO hidden truth by design. Returns `(scores, None)` on
     success or `(None, {cell, reason})` when the real panel is not present /
-    scoring failed. The synthetic path is untouched.
+    scoring failed.
     """
     try:
         cell = load_actual_cell(actual_data_root)
@@ -189,8 +189,7 @@ def main() -> None:
         "--dump-values-dir",
         type=Path,
         default=None,
-        help="Optional per-cell dump directory (no-op hook, retired with the "
-        "cosine dump, M-1.2; reserved for the deferred M-1.10 error appendix).",
+        help="Reserved; accepted and ignored.",
     )
     parser.add_argument(
         "--actual-data-root",
@@ -199,7 +198,7 @@ def main() -> None:
         help="Optional Dominick's POS panel root (the Kilts category files, e.g. wtti.csv). When given, the actual-data "
         "arm (Layer 1 + Layer 4) is scored via load_actual_cell -> evaluate_prebuilt "
         "and added as its OWN (cell_type, data_arm) diagnostic partition — NOT ranked "
-        "into the synthetic own-price-WMPE headline (M-6.2). Absent panel is reported, "
+        "into the synthetic own-price-WMPE headline. Absent panel is reported, "
         "never treated as a synthetic hidden-truth skip.",
     )
     parser.add_argument("--format", choices=["table", "markdown"], default="table")
@@ -214,7 +213,7 @@ def main() -> None:
         dump_values_dir=args.dump_values_dir,
     )
 
-    # Actual-data arm (M-0.1): scored separately from the synthetic discovery loop
+    # Actual-data arm: scored separately from the synthetic discovery loop
     # so the "hidden truth absent -> skip" branch never fires on real data.
     if args.actual_data_root is not None:
         actual_scores, actual_skip = evaluate_actual_arm(
@@ -233,8 +232,8 @@ def main() -> None:
 
     table_payloads = list(payloads)
     if args.reference_scores is not None:
-        # Merge reference rows, but guard the actual/synthetic arm split (M-6.2,
-        # §3 E7). A reference joins a cell ONLY when BOTH cell_slug AND data_arm
+        # Merge reference rows, but guard the actual/synthetic arm split.
+        # A reference joins a cell ONLY when BOTH cell_slug AND data_arm
         # match a scored cell — treating a missing data_arm as "synthetic" on both
         # sides. When the actual arm coexists with the synthetic arm for the same
         # cell_slug, a cell_slug-only match would splice a synthetic reference row

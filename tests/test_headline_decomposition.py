@@ -1,10 +1,9 @@
-"""Unit tests for the decomposed Layer-3 headline (M-1.* redesign).
+"""Unit tests for the decomposed Layer-3 headline.
 
 own = signed WMPE on the category-netted focal Δq (pooled); substitution =
 unsigned WAPE (raw-mass L1) on the category-netted competitor Δq (pooled). Both
 net each side by its own category shift ΔM = ΣΔq, then micro-average (pool
 numerators and denominators, divide once). Hand-computed deterministic cases.
-No cosine, no geometry, no per-store-week averaging.
 """
 
 from __future__ import annotations
@@ -65,7 +64,7 @@ def test_substitution_wape_measures_competitor_mass_error():
 def test_category_netting_isolates_both_axes():
     # Prediction = true substitution + a WRONG category shift (ΔM_pred=-40).
     # Netting each side by its own ΔM removes the category term -> own=0, sub=0
-    # (a category-magnitude error is graded on NEITHER axis; M-1.7).
+    # (a category-magnitude error is graded on neither axis).
     base = {"F": 100.0, "A": 50.0, "B": 50.0, "C": 50.0}
     total = sum(base.values())
     dq_true = {"F": -20.0, "A": 8.0, "B": 6.0, "C": 6.0}  # ΣΔq* = 0
@@ -76,7 +75,7 @@ def test_category_netting_isolates_both_axes():
     assert out["substitution_wape"] == pytest.approx(0.0, abs=1e-9)
 
 
-# --- pooling (micro-average across store-weeks; M-1.6) ----------------------
+# --- pooling (micro-average across store-weeks) -----------------------------
 
 
 def test_pooled_micro_average_across_store_weeks():

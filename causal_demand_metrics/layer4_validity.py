@@ -56,13 +56,12 @@ DEFAULT_EXTREME_ABS = 8.0
 # Category-specific band for facial tissue (this benchmark's calibration target).
 # Centered on the store-level scanner estimate for paper/tissue (Hoch, Kim,
 # Montgomery & Rossi 1995, JMR 32(1):17-29 ≈ -2), Tellis' -1.76 mean, and the
-# pipeline's own calibrated ≈ -1.8 anchor (layer2_elasticity.py). Illustrative —
+# benchmark's own calibrated ≈ -1.8 anchor. Illustrative —
 # override with the IRI-calibrated value at scoring time.
 FACIAL_TISSUE_OWN_BAND = (-3.0, -1.0)
 
 # Bootstrap CI defaults. The seed is fixed so a given submission scores
-# identically on every run (pure package — no RNGScope dependency); pass
-# ``n_boot=0`` to skip the CI entirely.
+# identically on every run; pass ``n_boot=0`` to skip the CI entirely.
 DEFAULT_N_BOOT = 1000
 DEFAULT_CI_ALPHA = 0.05
 DEFAULT_BOOTSTRAP_SEED = 0

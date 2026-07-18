@@ -62,7 +62,7 @@ counted — a partial submission cannot shrink its own denominator.
 
 One row per (intervention, product, store, week) over the 14 sweep
 interventions published in `public/counterfactual_sweep_context_public.csv`.
-(Only the sweep interventions are scored. The two legacy contexts
+(Only the sweep interventions are scored. The two additional contexts
 (`counterfactual_context_public.csv`,
 `counterfactual_context_single_product_public.csv`) are DGP-construction
 fixtures — rows submitted for them are ignored by the scorer.)
@@ -84,9 +84,9 @@ omitted from a store-week are scored as Δq̂ = 0 for that component
 distribution.
 
 **Scoring — the decomposed headline.**
-The undecomposed cosine over the whole Δq vector was retired: the focal
-product's own response dominates the vector, so one cosine is blind to both
-own-magnitude bias and substitution distortion. The headline is now a PAIR of
+A single score over the whole Δq vector would be dominated by the focal
+product's own response, leaving it blind to both own-magnitude bias and
+substitution distortion — so the headline is a PAIR of
 numbers read off ONE scenario (`sweep_single_share_highest_plus10`, the flagship
 +X% hike), both from the *same* submitted Δq̂. Both sides are first
 **category-netted** (each netted by its own category shift `Δq − ΔM·share`,

@@ -116,12 +116,12 @@ def test_validity_scores_bundle_label_free():
     assert out["own_price_sign"]["frac_correct_sign"] == 1.0
     assert out["substitution_sign"]["frac_redistribution_mass_correct"] == 1.0
     assert out["own_elasticity_range"]["frac_in_band"] == 1.0
-    # Refinements: cross plausibility + gate verdict now bundled.
+    # Cross plausibility + the gate verdict are bundled in the output.
     assert "cross_elasticity_plausibility" in out
     assert out["gate"]["verdict"] == "PASS"
 
 
-# --- refinements: bootstrap CIs ---------------------------------------------
+# --- bootstrap CIs ----------------------------------------------------------
 
 
 def _multiweek(rows_per_week):
@@ -149,7 +149,7 @@ def test_ci_skipped_when_n_boot_zero():
     assert own_price_sign_validity(frame, "F", price_increase=True, n_boot=0)["ci"] is None
 
 
-# --- refinements: unweighted count vs mass-weighted -------------------------
+# --- unweighted count vs mass-weighted --------------------------------------
 
 
 def test_substitution_reports_both_count_and_mass():
@@ -163,7 +163,7 @@ def test_substitution_reports_both_count_and_mass():
     assert out["mass_ci"] is not None and out["count_ci"] is not None
 
 
-# --- refinements: complements flip the expected sign ------------------------
+# --- complements flip the expected sign -------------------------------------
 
 
 def test_complements_flip_expected_sign():
@@ -178,7 +178,7 @@ def test_complements_flip_expected_sign():
     assert with_comp["n_complements_seen"] == 1
 
 
-# --- refinements: cross-elasticity plausibility -----------------------------
+# --- cross-elasticity plausibility ------------------------------------------
 
 
 def test_cross_elasticity_plausibility():
@@ -192,7 +192,7 @@ def test_cross_elasticity_plausibility():
     assert out["frac_cross_matches_prior"] == pytest.approx(5 / 6)  # one negative cross
 
 
-# --- refinements: coherence gate verdict ------------------------------------
+# --- coherence gate verdict -------------------------------------------------
 
 
 def test_coherence_gate_verdicts():

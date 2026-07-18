@@ -2,9 +2,8 @@
 
 The package is the single source of truth for the metric math and is
 distributed standalone (pip). It must never grow an import of
-`benchmark_pipeline` (which would drag the hidden DGP into the public
-distribution) — the covariance_probit truth generator was split out to
-`benchmark_pipeline/metrics/elasticity_truth.py` for exactly this reason.
+`benchmark_pipeline`, which would drag the hidden DGP into the public
+distribution.
 """
 
 from __future__ import annotations

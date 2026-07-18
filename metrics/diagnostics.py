@@ -9,8 +9,8 @@ typically the dev seed's 8 cells) into two spreadsheet-friendly tables:
    pairs and per true relationship class). Reading a row says which world
    hurts the model; reading a column says which capability is missing.
 2. **L3 intervention matrix** (`--layer3-out`): rows = cells, columns = the
-   14 protocol interventions, values = the substitution WAPE (M-1.4; the
-   cosine was retired). The headline scenario is one of these columns; the
+   14 protocol interventions, values = the substitution WAPE.
+   The headline scenario is one of these columns; the
    rest are the robustness surface (e.g. good on single-product moves but
    collapsing on brand portfolios = weak substitution structure).
 
@@ -56,7 +56,7 @@ def _layer12_row(scores: dict[str, Any]) -> dict[str, Any]:
 
 def _layer3_row(scores: dict[str, Any]) -> dict[str, Any]:
     """One row of the L3 intervention matrix: the substitution WAPE per
-    intervention (M-1.4; the cosine was retired)."""
+    intervention."""
     row: dict[str, Any] = {"cell": scores.get("cell_slug") or Path(scores.get("cell_dir", "")).name}
     layer3 = scores.get("layer3_counterfactual", {})
     for intervention in layer3.get("interventions", []):
@@ -66,7 +66,7 @@ def _layer3_row(scores: dict[str, Any]) -> dict[str, Any]:
 
 
 # Column order for the intervention matrix: selection by selection, +10 then
-# −10, matching the protocol table (spec §7). Unknown ids append at the end.
+# −10, matching the protocol table. Unknown ids append at the end.
 INTERVENTION_ORDER = [
     f"sweep_{rule}_{direction}"
     for rule in (

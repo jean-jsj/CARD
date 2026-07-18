@@ -1,22 +1,21 @@
-"""Layer 1 demand-prediction metrics (Proposal v2.2 §1).
+"""Layer 1 demand-prediction metrics.
 
 Revenue-weighted WMAPE (accuracy) and WMPE (bias) on demand forecasts under
 the observed pricing policy, over the chronological holdout window (the last
 `counterfactual_eval_weeks` weeks).
 
-Conventions (maintainer rulings 2026-06-11; details in the spec's revision
-notes):
+Conventions:
 
-* **Truth object = OBSERVED holdout sales** (option B — the conventional,
-  M5-style forecasting target). The holdout weeks' units/dollars are withheld
-  from the public transactions file and live in
+* **Truth object = OBSERVED holdout sales** (the conventional, M5-style
+  forecasting target). The holdout weeks' units/dollars are withheld from the
+  public transactions file and live in
   `hidden/transactions_full_hidden.csv`; participants receive the holdout
   weeks' prices/promo flags as `public/transactions_holdout_context_public.csv`
   (the conditional-forecasting inputs). Scoring against observed counts
   carries an irreducible observation-noise floor shared by all models.
-* **Aggregation** — the proposal's formulas index products only; errors are
-  summed within product over (store, week) and revenue-weighted across
-  products: `WMAPE = Σ_i w_i Σ_st |q̂−q*| / Σ_i w_i Σ_st |q*|`.
+* **Aggregation** — the formulas index products only; errors are summed
+  within product over (store, week) and revenue-weighted across products:
+  `WMAPE = Σ_i w_i Σ_st |q̂−q*| / Σ_i w_i Σ_st |q*|`.
 * **Weights** — `w_i` = the product's share of observed public revenue over
   the TRAINING window (the holdout window's revenue is hidden, so training-
   window weights keep w_i participant-reproducible).
@@ -33,7 +32,7 @@ KEY_COLUMNS = ["product_id", "store_id", "week"]
 
 
 def revenue_weights(transactions_window: pd.DataFrame) -> pd.Series:
-    """Per-product revenue share over the supplied window (w_i in spec §1).
+    """Per-product revenue share over the supplied window (the weight w_i).
 
     Callers pass the public TRAINING window (holdout revenue is hidden;
     training-window weights are participant-reproducible).
@@ -50,8 +49,7 @@ def build_demand_truth(transactions_full: pd.DataFrame, eval_weeks: list[int]) -
 
     `transactions_full` is the hidden full panel
     (`hidden/transactions_full_hidden.csv`); the truth is its `units` column
-    over the holdout window (option B, ratified 2026-06-11 — the conventional
-    observed-sales forecasting target).
+    over the holdout window.
     """
     window = transactions_full[
         transactions_full["week"].isin(set(int(w) for w in eval_weeks))
@@ -65,7 +63,7 @@ def demand_prediction_scores(
     truth: pd.DataFrame,
     weights: pd.Series,
 ) -> dict[str, Any]:
-    """Demand-WMAPE + Demand-WMPE (spec §1) for one submission.
+    """Demand-WMAPE + Demand-WMPE for one submission.
 
     `predictions` must carry (product_id, store_id, week, predicted_units);
     `truth` carries the same keys + `true_units`. Scoring runs on the inner

@@ -73,7 +73,7 @@ def test_build_demand_truth_is_observed_holdout_units():
         }
     )
     truth = build_demand_truth(transactions_full, [2])
-    # Option B (2026-06-11): truth = OBSERVED holdout sales, not latent demand.
+    # Truth = observed holdout sales, not latent demand.
     assert sorted(truth["true_units"].tolist()) == [5.0, 17.0]
     assert set(truth["week"]) == {2}
 
@@ -160,7 +160,7 @@ def test_log_log_truth_closed_form():
 
 
 # ---------------------------------------------------------------------------
-# incidence amendment (R3, 2026-06-11): total truth, conditional-basis classes
+# incidence: total truth, conditional-basis classes
 # ---------------------------------------------------------------------------
 
 
@@ -213,8 +213,8 @@ def test_classification_falls_back_to_total_without_conditional():
     assert without["cross_price"]["classification_basis"] == "total"
     # On the conditional basis no pair is a complement (the fixture has no
     # true complementarity); on totals the common negative incidence shift
-    # manufactures apparent complements — the exact semantic muddying R3 was
-    # ruled to avoid.
+    # manufactures apparent complements — the semantic muddying the
+    # conditional basis avoids.
     n_complement_cond = with_cond["cross_price"]["f1_per_class"]["complement"]["n_true"]
     n_complement_total = without["cross_price"]["f1_per_class"]["complement"]["n_true"]
     assert n_complement_cond == 0

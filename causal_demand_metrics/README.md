@@ -1,11 +1,11 @@
 # causal_demand_metrics/
 
-**Pure scoring math** — the single source of truth for all three evaluation
+**Pure scoring math** — the single source of truth for all evaluation
 layers, shared by the construction pipeline and the participant harness
 (`metrics/`). numpy + pandas only: no file I/O, no DGP code, no hidden-truth
 generation. pip-installable.
 
-## What it scores (three layers)
+## What it scores (four layers)
 
 **Layer 1 — demand forecasting.** Accuracy of held-out observed-sales forecasts,
 revenue-weighted across products:
@@ -49,7 +49,7 @@ ONE scenario (`sweep_single_share_highest_plus10`, the flagship +X% hike) —
 **own-price = signed WMPE** and **substitution = unsigned WAPE**, both on the
 category-netted Δq. See *The Layer-3 headline* below for what each measures.
 
-## The Layer-3 headline — what changed this version
+## The Layer-3 headline
 
 Raising one product's price produces a vector of demand changes across the whole
 category — the product's own drop, plus the gains spread over its competitors.
@@ -72,7 +72,7 @@ as substitution):
 
 Both numbers are micro-averaged: numerators and denominators are pooled across
 all store-weeks and divided once (no per-store-week ratio-then-average, no
-renormalization, no cosine). The leaderboard ranks by **|own-price WMPE|
+renormalization). The leaderboard ranks by **|own-price WMPE|
 ascending** (closest-to-zero bias first); the substitution WAPE rides alongside.
 
 ## Which layers score on which data arm
@@ -110,5 +110,5 @@ actual-arm scoring layer, while Layer 1 runs on both arms.
 
 ## Status
 
-`0.5.0.dev0` (pre-release; pip cut tracked in `FOLLOWUPS.md`).
+`0.5.0.dev0` (pre-release).
 `pip install -e .`

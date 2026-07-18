@@ -1,14 +1,13 @@
-"""Layer 2 elasticity-estimation metrics (Proposal v2.2 §2).
+"""Layer 2 elasticity-estimation metrics.
 
-All elasticities — model-side and ground-truth — are defined via the spec's
-1% price-perturbation construction at observed test-window prices:
+All elasticities — model-side and ground-truth — are defined via a 1%
+price-perturbation construction at observed test-window prices:
 
     ε_ij = [Σ_st q_i(p_j·1.01, p_−j) − Σ_st q_i(p)] / (0.01 · Σ_st q*_i(p))
 
 yielding a J×J matrix (rows = affected product i, columns = priced product j;
 diagonal = own-price). The denominator always uses the DGP's baseline
-quantities q* (spec design choice: isolates price-response accuracy from
-demand-level accuracy).
+quantities q*, isolating price-response accuracy from demand-level accuracy.
 
 Ground truth per family:
 
@@ -24,39 +23,29 @@ Ground truth per family:
   depends on the benchmark's hidden DGP and lives pipeline-side
   (`benchmark_pipeline/metrics/elasticity_truth.py`), not in this package.
 
-Scoring follows the spec's four dimensions: Direction (own sign accuracy;
-cross F1 per substitute/complement/unrelated class), Ranking (cross NDCG),
-Magnitude (WMAPE, RMSE), Bias (WMPE, mean signed error), with cross-price
-metrics stratified by true relationship class. The unrelated-class boundary
-is the bottom `unrelated_threshold_pct` (default 20%) percentile of the
-classification basis |ε|, reported with the scores (spec note on class
-boundaries).
+Scoring covers four dimensions: Direction (own sign accuracy; cross F1 per
+substitute/complement/unrelated class), Ranking (cross NDCG), Magnitude
+(WMAPE, RMSE), Bias (WMPE, mean signed error), with cross-price metrics
+stratified by true relationship class. The unrelated-class boundary is the
+bottom `unrelated_threshold_pct` (default 20%) percentile of the
+classification basis |ε|, reported with the scores.
 
-Purchase-incidence amendment (re-ruled 2026-06-11). The scored truth ε* is
-the **TOTAL** elasticity — q_i = M(p)·s_i(p), incidence margin included —
-because participants model units and any correct units-based model estimates
-the total effect. Since ln q_i = ln M + ln s_i, the decomposition
-ε_total(i,j) = ε_M(j) + ε_cond(i,j) is exactly additive; the DGP emits the
-conditional (fixed-M switching) matrix alongside the total. The
-substitute/complement/unrelated **classification runs on the conditional
-elasticity** when supplied (pure substitution semantics — under totals, the
-common ε_M(j) < 0 shift would turn zero-switching pairs into apparent
-complements and make the bottom-percentile band select knife-edge
-cancellation pairs). Predictions are classed on ε̂_ij − ε*_M(j) (the true
-incidence component netted out — truth-anchored boundaries, same as the
-threshold itself); magnitude/bias/ranking are always scored on totals.
-
-D-D1 / M-2.1 (2026-07-04, Option 2 — KEEP AS-IS): the own-price DIAGONAL is
-INTENTIONALLY scored on TOTALS here, NOT netted to the conditional/switching
-basis; cross classification LABELS use the conditional (incidence-netted)
-basis while cross MAGNITUDE also stays on totals. This "category graded on no
-axis" property is scoped (M-2.3) to the Layer-3 headline ARENA metric
-(``headline_decomposition.py``), NOT to this elasticity-matrix diagnostic,
-which is a documented "total-elasticity accuracy" measure. A fully
-category-netted Layer 2 (own AND cross magnitude on the conditional basis) is
-DEFERRED as its own future decision — ticket ``D-D1-L2-NET``, NOT done. See
-decisions.md 2026-07-04 (M-2.2) and clarified §9 "D-D1 Phase-5 micro-decision
-batch (2026-07-04)".
+Purchase incidence. The scored truth ε* is the **TOTAL** elasticity —
+q_i = M(p)·s_i(p), incidence margin included — because participants model
+units and any correct units-based model estimates the total effect. Since
+ln q_i = ln M + ln s_i, the decomposition ε_total(i,j) = ε_M(j) + ε_cond(i,j)
+is exactly additive; the DGP emits the conditional (fixed-M switching) matrix
+alongside the total. The substitute/complement/unrelated **classification
+runs on the conditional elasticity** when supplied (pure substitution
+semantics — under totals, the common ε_M(j) < 0 shift would turn
+zero-switching pairs into apparent complements and make the bottom-percentile
+band select knife-edge cancellation pairs). Predictions are classed on
+ε̂_ij − ε*_M(j) (the true incidence component netted out — truth-anchored
+boundaries, same as the threshold itself); magnitude/bias/ranking are always
+scored on totals. The own-price diagonal is intentionally scored on totals
+too, not on the conditional/switching basis: this module is a
+total-elasticity accuracy diagnostic, whereas category-netting belongs to the
+Layer-3 headline (``headline_decomposition.py``).
 """
 
 from __future__ import annotations
@@ -82,9 +71,9 @@ def elasticity_truth_log_log(
 ) -> pd.DataFrame:
     """Closed-form ε* for the log_log family (rows = affected, cols = priced).
 
-    `store_sensitivity` (D5, symmetry-unfreeze 2026-06-16): an optional length-S
-    vector of per-store price-sensitivity multipliers `sens_s` (the
-    `loglog_store_price_sensitivity_hidden` artifact). The DGP scales BOTH own and
+    `store_sensitivity`: an optional length-S vector of per-store
+    price-sensitivity multipliers `sens_s` (the hidden per-store
+    price-sensitivity artifact). The DGP scales BOTH own and
     cross effects per store by the same `sens_s` in deviation-from-base form, so
     the per-store response is `(1.01^(sens_s·e_eff) − 1)/0.01`. Under that form the
     per-store baseline quantity q* is sens-invariant (the `target_units` anchor
@@ -94,13 +83,13 @@ def elasticity_truth_log_log(
         ε*_ij = mean_s[ (1.01^(sens_s·e_eff_ij) − 1) / 0.01 ].
 
     When `None` (or all-ones), this is byte-identical to the single-`e_eff` closed
-    form (backward compatible). The integrated matrix stays close to the base
+    form. The integrated matrix stays close to the base
     matrix: the asymptotic Jensen gap (E[sens]=1, 1% perturbation) is only
     ~0.2-0.3% relative, and the dominant deviation on a finite panel is the
-    realized store-mean of sens differing from 1 (e.g. ~+2% over the 731-store
-    seed-1 draw → ~2% relative on the steepest own entries; max abs ~0.04 on a
+    realized store-mean of sens differing from 1 (e.g. ~+2% over a 731-store
+    draw → ~2% relative on the steepest own entries; max abs ~0.04 on a
     -2.5 own elasticity). The aggregate own-elasticity therefore tracks the
-    base ≈ -1.8 anchor (deviation form keeps q* sens-invariant).
+    base matrix closely (deviation form keeps q* sens-invariant).
     """
     own = dgp.set_index("product_id")["own_elasticity"].reindex(product_ids).to_numpy(dtype=float)
     j = len(product_ids)
@@ -111,8 +100,8 @@ def elasticity_truth_log_log(
         else np.asarray(store_sensitivity, dtype=float).reshape(-1)
     )
     if sens is None or sens.size == 0 or np.all(sens == 1.0):
-        # Backward-compatible scalar closed form; the all-ones case routes here
-        # too so the result is byte-identical to store_sensitivity=None.
+        # The all-ones case routes here so the result is byte-identical to
+        # store_sensitivity=None.
         eps = (np.power(1.0 + PERTURBATION, e_eff) - 1.0) / PERTURBATION
     else:
         # Broadcast sens (S,) over e_eff (J,J) -> (S,J,J); store-average.
@@ -155,7 +144,7 @@ def _f1_per_class(true_labels: np.ndarray, pred_labels: np.ndarray, classes: lis
 
 
 def _ndcg(eps_hat: pd.DataFrame, eps_star: pd.DataFrame, k: int) -> float | None:
-    """Mean NDCG@k over focal products: rank others by |ε̂_ij|, gains |ε*_ij| (spec 2-2 B)."""
+    """Mean NDCG@k over focal products: rank others by |ε̂_ij|, gains |ε*_ij|."""
     scores: list[float] = []
     for i in eps_star.index:
         others = [j for j in eps_star.columns if j != i]
@@ -179,8 +168,7 @@ def _magnitude_bias_block(
     """WMAPE / RMSE / WMPE / mean signed error over one set of (i, j) entries.
 
     `weights` carries the focal-product revenue weight w_i replicated per
-    entry; the absolute-value denominator |ε*| follows the spec's note on
-    signed elasticities.
+    entry; the denominator uses |ε*| because elasticities are signed.
     """
     if hat.size == 0:
         return {"wmape": None, "rmse": None, "wmpe": None, "mean_signed_error": None, "n_entries": 0}
@@ -203,15 +191,15 @@ def elasticity_scores(
     unrelated_threshold_pct: float = 0.20,
     ndcg_k: int | None = None,
 ) -> dict[str, Any]:
-    """Score a J×J estimated elasticity matrix against truth (spec §2).
+    """Score a J×J estimated elasticity matrix against truth.
 
     All frames are indexed affected_product_id × priced_product_id. `eps_star`
-    is the scored truth (TOTAL elasticity under the incidence amendment).
+    is the scored truth (the TOTAL elasticity, incidence margin included).
     `eps_star_conditional`, when supplied, is the fixed-M switching matrix:
     class stratification then runs on conditional values, with predictions
     classed on ε̂ − ε*_M(j) (the true incidence component, column-constant,
     derived as total − conditional). Without it, classification falls back to
-    the total values (pre-incidence behavior). The submission must cover the
+    the total values. The submission must cover the
     full matrix; missing entries are reported and treated as 0.0 (the
     no-information value) rather than dropped, so a partial submission cannot
     shrink its own denominator.
