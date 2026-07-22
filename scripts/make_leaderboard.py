@@ -36,8 +36,14 @@ ENDO = {"on": "endogenous", "off": "exogenous"}
 
 ACCENT = "#2a78d6"
 GRAY = "#a5a39a"
-INK = "#333333"
-GRID = "#dddbd4"
+INK = "#141310"
+INK2 = "#52514e"
+INK3 = "#8a887e"
+GRID = "#e5e3dc"
+SURFACE = "#ffffff"
+# Fixed categorical order (entries keep their slot as the board grows).
+SLOTS = ["#2a78d6", "#008300", "#e87ba4", "#eda100",
+         "#1baf7a", "#eb6834", "#4a3aa7", "#e34948"]
 START, END = "<!-- LEADERBOARD:START -->", "<!-- LEADERBOARD:END -->"
 
 
@@ -66,54 +72,82 @@ def load_entries(subs: Path) -> dict[str, dict]:
 
 
 def scatter_svg(entries: dict, fam: str, fam_label: str, highlight: str | None) -> str:
-    """Paired endo-on (top) / endo-off (bottom) scatter for one family."""
+    """Paired endo-on (top) / endo-off (bottom) scatter for one family.
+
+    The panel geometry replicates the results-explorer design: only the dots
+    (and their labels) change with the entry list.
+    """
     rows = {m: e[fam] for m, e in entries.items() if e.get(fam)}
-    W, PH, L, R, T, B, GAP = 640, 240, 56, 16, 30, 40, 26
-    H = 2 * PH + GAP
+    order = sorted(rows)
+    color = {m: SLOTS[i % len(SLOTS)] for i, m in enumerate(order)}
+
+    W, PH, L, R, T, B = 660, 300, 64, 16, 16, 46
+    SUB = 26  # subtitle band above each panel
+    H = 2 * (SUB + PH) + 8
 
     xs = [v["l1"] for e in rows.values() for v in e.values()]
     ys = [abs(v["own"]) for e in rows.values() for v in e.values()]
-    xmin = min(xs + [0.44]) - 0.005 if xs else 0.4
-    xmax = max(xs + [0.5]) + 0.005 if xs else 0.55
-    ymax = max(ys + [0.25]) * 1.12 if ys else 0.3
+    xmin, xmax = min(xs + [0.44]) - 0.005, max(xs + [0.5]) + 0.008
+    ymax = max(ys + [0.25]) * 1.02
+
+    def xticks():
+        t, out = 0.45, []
+        while t < xmax:
+            out.append(round(t, 2))
+            t += 0.01
+        return out
+
+    def yticks():
+        t, out = 0.05, []
+        while t <= ymax:
+            out.append(round(t, 2))
+            t += 0.05
+        return out
 
     def panel(endo: str, top: float, title: str) -> str:
         X = lambda v: L + (v - xmin) / (xmax - xmin) * (W - L - R)
         Y = lambda v: top + PH - B - v / ymax * (PH - T - B)
-        s = f'<text x="{L}" y="{top + 14}" font-size="11" font-weight="600" fill="{INK}">{title}</text>'
-        step = round((xmax - xmin) / 5, 2) or 0.01
-        t = xmin
-        while t <= xmax:
-            s += (f'<line x1="{X(t):.0f}" y1="{top + T}" x2="{X(t):.0f}" y2="{top + PH - B}" stroke="{GRID}"/>'
-                  f'<text x="{X(t):.0f}" y="{top + PH - B + 14}" font-size="9" text-anchor="middle" fill="{GRAY}">{t:.2f}</text>')
-            t = round(t + step, 4)
-        s += (f'<line x1="{L}" y1="{Y(0):.0f}" x2="{W - R}" y2="{Y(0):.0f}" '
-              f'stroke="{INK}" stroke-width="1.2" stroke-dasharray="4 3"/>'
-              f'<text x="{L + 4}" y="{Y(0) - 5:.0f}" font-size="9" fill="{GRAY}">0 = unbiased</text>')
-        for m, e in sorted(rows.items()):
+        s = (f'<text x="24" y="{top - 8}" font-size="12.5" font-weight="600" '
+             f'fill="{INK2}" letter-spacing=".02em">{title}</text>')
+        for t in xticks():
+            s += (f'<line x1="{X(t):.1f}" y1="{top + T}" x2="{X(t):.1f}" y2="{top + PH - B}" stroke="{GRID}"/>'
+                  f'<text x="{X(t):.1f}" y="{top + PH - B + 16}" font-size="10" '
+                  f'text-anchor="middle" fill="{INK2}">{t:.2f}</text>')
+        for t in yticks():
+            s += (f'<line x1="{L}" y1="{Y(t):.1f}" x2="{W - R}" y2="{Y(t):.1f}" stroke="{GRID}"/>'
+                  f'<text x="{L - 8}" y="{Y(t) + 3:.1f}" font-size="10" '
+                  f'text-anchor="end" fill="{INK2}">{t:.2f}</text>')
+        s += (f'<line x1="{L}" y1="{Y(0):.1f}" x2="{W - R}" y2="{Y(0):.1f}" '
+              f'stroke="{INK3}" stroke-width="1.5" stroke-dasharray="4 3"/>'
+              f'<text x="{L + 4}" y="{Y(0) - 6:.1f}" font-size="10" fill="{INK2}">0 = unbiased</text>')
+        s += (f'<text x="{(L + W - R) / 2}" y="{top + PH - 6}" font-size="11.5" '
+              f'text-anchor="middle" fill="{INK2}">L1 forecast WMAPE — lower = fits observed sales better</text>')
+        s += (f'<text transform="rotate(-90 14 {top + (T + PH - B) / 2:.0f})" x="14" '
+              f'y="{top + (T + PH - B) / 2:.0f}" font-size="11.5" text-anchor="middle" '
+              f'fill="{INK2}">|own-price WMPE| — 0 = unbiased</text>')
+        for m in order:
+            e = rows[m]
             if endo not in e:
                 continue
             cx, cy = X(e[endo]["l1"]), Y(abs(e[endo]["own"]))
             mine = highlight is not None and m == highlight
-            col = ACCENT if (highlight is None or mine) else GRAY
-            r = 7 if mine else 5.5
-            s += f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r}" fill="{col}" stroke="#ffffff" stroke-width="1.5"/>'
-            lab = html.escape(m) + (" (your model)" if mine else "")
-            w = "600" if mine else "400"
-            s += (f'<text x="{cx + 10:.1f}" y="{cy - 7:.1f}" font-size="10" '
-                  f'font-weight="{w}" fill="{INK if (highlight is None or mine) else GRAY}">{lab}</text>')
+            col = color[m] if (highlight is None or mine) else GRAY
+            s += (f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{7.5 if mine else 6.5}" '
+                  f'fill="{col}" stroke="{SURFACE}" stroke-width="2"/>')
+            lab = html.escape(m) + (" — your model" if mine else "")
+            w = ' font-weight="600"' if mine else ""
+            s += (f'<text x="{cx + 10:.1f}" y="{cy - 8:.1f}" font-size="10.5"{w} '
+                  f'fill="{INK2 if (highlight is None or mine) else GRAY}">{lab}</text>')
+        if not rows:
+            s += (f'<text x="{(L + W - R) / 2}" y="{top + (T + PH - B) / 2}" font-size="13" '
+                  f'text-anchor="middle" fill="{GRAY}">no verified entries yet</text>')
         return s
 
-    body = panel("on", 0, f"{fam_label} · endogeneity on (ranked)")
-    body += panel("off", PH + GAP, f"{fam_label} · endogeneity off (control)")
-    if not rows:
-        body += (f'<text x="{W / 2}" y="{H / 2}" font-size="13" text-anchor="middle" '
-                 f'fill="{GRAY}">no verified entries yet</text>')
-    body += (f'<text x="{(L + W - R) / 2}" y="{H - 4}" font-size="10" text-anchor="middle" fill="{INK}">'
-             f'L1 forecast WMAPE (lower = better fit); vertical axis: |own-price WMPE| (0 = unbiased)</text>')
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H + 16}" '
-            f'font-family="Helvetica,Arial,sans-serif"><rect width="100%" height="100%" fill="#ffffff"/>'
-            + body + "</svg>")
+    body = panel("on", SUB, "endogeneity on — the arena (ranked)")
+    body += panel("off", 2 * SUB + PH + 8, "endogeneity off — the control")
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" '
+            f'font-family="Avenir Next,Segoe UI,Helvetica,Arial,sans-serif">'
+            f'<rect width="100%" height="100%" fill="{SURFACE}"/>' + body + "</svg>")
 
 
 def rank_table(entries: dict, highlight: str | None) -> str:
