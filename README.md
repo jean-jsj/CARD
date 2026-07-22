@@ -84,4 +84,15 @@ The DGP code and calibrated parameters are not published while the evaluation ph
 
 ## License & citation
 
-Code: **Apache-2.0** ([LICENSE](LICENSE)). Data: **CC BY 4.0** (declared on the Hugging Face dataset card). The panels are synthetic, calibrated to moments of the IRI academic scanner dataset; no real transactions are included. Cite via [CITATION.cff](CITATION.cff).
+Code: **Apache-2.0** ([LICENSE](LICENSE)). Data: **CC BY 4.0** (declared on the Hugging Face dataset card). The panels are synthetic, calibrated to moments of the IRI academic scanner dataset; no real transactions are included.
+
+```bibtex
+@misc{hong2026card,
+  author = {Hong, Juwon},
+  title  = {CARD: Causal Recovery of Demand},
+  year   = {2026},
+  url    = {https://github.com/jean-jsj/CARD}
+}
+```
+
+(Also in [CITATION.cff](CITATION.cff); the paper reference will replace this upon publication.)
