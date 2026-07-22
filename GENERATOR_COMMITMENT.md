@@ -15,6 +15,13 @@ To make the withholding verifiable rather than a "trust us":
            third-party-licensed raw inputs, which are never distributable)
   ```
 
+- Provenance note: the released cells carry the generation stamp `9f30910` in
+  `release/scoring_params.json` (`benchmark_version`). `9f30910` is a direct
+  ancestor of the freeze commit `668dc6b`; the only changes between the two are
+  additions to the validation harness and its tests — every simulation and
+  calibration file is byte-identical. The committed archive therefore contains
+  exactly the generator that produced the released data.
+
 - **We commit to publishing the archive itself after the evaluation phase** (at latest, upon completion of the associated paper's review cycle). Anyone can then verify `sha256sum` of the released archive against the digest above, proving the released generator is byte-identical to the one that produced the released data.
 
 Until then, the released artifacts are the panels, the product-text surface, the scoring truth for the dev seed, and this scoring stack.

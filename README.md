@@ -16,7 +16,7 @@ Panels cover **156 weeks** — 140 public training weeks plus 16 holdout-context
 
 ## Data
 
-The data are hosted on Hugging Face: **`jean-jsj/CARD`** *(link goes live with the v0.1 release)*.
+The data are hosted on Hugging Face: [`jean-jsj/CARD`](https://huggingface.co/datasets/jean-jsj/CARD).
 
 Each cell directory contains:
 
@@ -54,9 +54,16 @@ The benchmark also runs an **actual-data arm** (Layer 1 + Layer 4) on a real poi
 
 ## Leaderboard
 
-| Model | L3 own-price WMPE | L3 substitution WAPE | L1 WMAPE |
-|---|---|---|---|
-| *reference baselines land with v0.2* | | | |
+The four reference models form a 2×2 grid over the benchmark's two challenges — with/without the released instruments, and with/without the product text — each fitting the cell's own demand family from the `public/` files alone. Dev seed 1, the two endogeneity-on arena cells (per-model details: [`submissions/`](submissions/); full per-cell scores in each model's `scores/`):
+
+| Model | log-log endo: own WMPE | sub WAPE | L1 WMAPE | discrete-choice endo: own WMPE | sub WAPE | L1 WMAPE |
+|---|---:|---:|---:|---:|---:|---:|
+| reference: instruments + text | **−0.001** | 0.455 | 0.461 | −0.046 | 0.919 | 0.483 |
+| reference: instruments only | −0.009 | 0.543 | 0.474 | +0.093 | 0.911 | 0.497 |
+| reference: text only | −0.092 | 0.464 | 0.453 | −0.157 | 0.925 | 0.476 |
+| reference: neither (naive) | −0.230 | 0.523 | 0.455 | −0.008 | 0.913 | 0.490 |
+
+Own-price WMPE is the headline (0 = unbiased): in the log-log arena cell the naive corner carries a −23% own-response bias that the instruments remove. Reference predictions are hosted with the dataset (`reference/` on Hugging Face).
 
 To submit an entry, see [CONTRIBUTING.md](CONTRIBUTING.md): score locally on the dev seed, then open a PR with your predictions; the maintainer scores the eval seeds and updates this table.
 
