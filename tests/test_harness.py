@@ -18,11 +18,11 @@ def _scores(
         "submission_name": name,
         "cell_dir": f"outputs/{cell_slug}",
         "cell_slug": cell_slug,
-        "layer1_demand_prediction": {"demand_wmape": 0.1, "demand_wmpe": -0.02},
-        "layer2_elasticity_estimation": {
+        "sales_forecasting": {"demand_wmape": 0.1, "demand_wmpe": -0.02},
+        "elasticity_recovery": {
             "own_price": {"sign_accuracy": 0.9, "wmape": 0.3, "wmpe": 0.1}
         },
-        "layer3_counterfactual": {
+        "counterfactual_prediction": {
             "headline": {
                 "scenario": "sweep_single_share_highest_plus10",
                 "rank_metric": "own_price.abs_own_price_wmpe",
@@ -46,20 +46,20 @@ def test_leaderboard_ranks_by_abs_own_wmpe_headline():
     )
     assert table.iloc[0]["submission"] == "strong"
     assert table.iloc[0]["rank"] == 1
-    assert table.iloc[0]["layer3_own_price_wmpe"] == pytest.approx(-0.12)
-    assert table.iloc[0]["layer3_substitution_wape"] == pytest.approx(0.2)
+    assert table.iloc[0]["own_price_bias"] == pytest.approx(-0.12)
+    assert table.iloc[0]["substitution_error"] == pytest.approx(0.2)
     assert table.iloc[1]["submission"] == "weak"
 
 
-def test_leaderboard_handles_not_submitted_layers():
+def test_leaderboard_handles_not_submitted_tasks():
     table = leaderboard_rows(
         [
             {
                 "submission_name": "l3_only",
                 "cell_slug": "complex_log_log_endogenous_seed001",
-                "layer1_demand_prediction": {"status": "not_submitted"},
-                "layer2_elasticity_estimation": {"status": "not_submitted"},
-                "layer3_counterfactual": {
+                "sales_forecasting": {"status": "not_submitted"},
+                "elasticity_recovery": {"status": "not_submitted"},
+                "counterfactual_prediction": {
                     "headline": {
                         "own_price": {"own_price_wmpe": -0.15},
                         "substitution": {"substitution_wape": 0.7},
@@ -68,10 +68,10 @@ def test_leaderboard_handles_not_submitted_layers():
             }
         ]
     )
-    value = table.iloc[0]["layer1_demand_wmape"]
+    value = table.iloc[0]["forecast_error"]
     assert value is None or value != value  # None or NaN
-    assert table.iloc[0]["layer3_own_price_wmpe"] == pytest.approx(-0.15)
-    assert table.iloc[0]["layer3_substitution_wape"] == pytest.approx(0.7)
+    assert table.iloc[0]["own_price_bias"] == pytest.approx(-0.15)
+    assert table.iloc[0]["substitution_error"] == pytest.approx(0.7)
 
 
 def test_aggregate_seeds_means_and_spread():
@@ -86,9 +86,9 @@ def test_aggregate_seeds_means_and_spread():
     assert row["cell_type"] == "complex_log_log_endogenous"
     assert row["n_seeds"] == 3
     # own-price WMPE mean = (-0.10 - 0.20 - 0.30) / 3 = -0.20; substitution WAPE mean = (0.80 + 0.70 + 0.90) / 3 = 0.80.
-    assert row["layer3_own_price_wmpe"] == pytest.approx(-0.20)
-    assert row["layer3_substitution_wape"] == pytest.approx(0.80)
-    assert row["layer3_substitution_wape_seed_sd"] == pytest.approx(0.0816496, abs=1e-5)
+    assert row["own_price_bias"] == pytest.approx(-0.20)
+    assert row["substitution_error"] == pytest.approx(0.80)
+    assert row["substitution_error_seed_sd"] == pytest.approx(0.0816496, abs=1e-5)
 
 
 def test_markdown_render_includes_spread():
@@ -104,15 +104,15 @@ def test_markdown_render_includes_spread():
 
 def test_read_submission_rejects_missing_columns(tmp_path):
     from metrics.evaluate_submission import (
-        LAYER3_COLUMNS,
+        COUNTERFACTUAL_COLUMNS,
         SubmissionFormatError,
         _read_submission,
     )
 
-    p = tmp_path / "layer3_counterfactual_deltas.csv"
+    p = tmp_path / "counterfactual_deltas.csv"
     p.write_text("intervention_id,product_id\nx,P1\n")  # missing store_id/week/predicted_delta_units
     with pytest.raises(SubmissionFormatError) as e:
-        _read_submission(p, LAYER3_COLUMNS, "Layer 3")
+        _read_submission(p, COUNTERFACTUAL_COLUMNS, "counterfactual prediction")
     msg = str(e.value)
     assert "missing required column" in msg
     assert "predicted_delta_units" in msg
@@ -120,11 +120,11 @@ def test_read_submission_rejects_missing_columns(tmp_path):
 
 
 def test_read_submission_accepts_valid(tmp_path):
-    from metrics.evaluate_submission import LAYER2_COLUMNS, _read_submission
+    from metrics.evaluate_submission import ELASTICITY_COLUMNS, _read_submission
 
-    p = tmp_path / "layer2_elasticities.csv"
+    p = tmp_path / "elasticity_matrix.csv"
     p.write_text("affected_product_id,priced_product_id,elasticity\nP1,P2,0.3\n")
-    df = _read_submission(p, LAYER2_COLUMNS, "Layer 2")
+    df = _read_submission(p, ELASTICITY_COLUMNS, "elasticity recovery")
     assert len(df) == 1
 
 
@@ -133,8 +133,8 @@ def test_diagnostics_tables_flatten_scores():
 
     scores = {
         "cell_slug": "complex_log_log_endogenous_seed001",
-        "layer1_demand_prediction": {"demand_wmape": 0.2, "demand_wmpe": -0.05},
-        "layer2_elasticity_estimation": {
+        "sales_forecasting": {"demand_wmape": 0.2, "demand_wmpe": -0.05},
+        "elasticity_recovery": {
             "own_price": {"sign_accuracy": 1.0, "wmape": 0.1, "rmse": 0.3, "wmpe": 0.05, "mean_signed_error": 0.02},
             "cross_price": {
                 "ndcg": 0.9,
@@ -145,7 +145,7 @@ def test_diagnostics_tables_flatten_scores():
                 "unrelated_abs_threshold": 0.03,
             },
         },
-        "layer3_counterfactual": {
+        "counterfactual_prediction": {
             "interventions": [
                 {
                     "intervention_id": "sweep_single_share_highest_plus10",

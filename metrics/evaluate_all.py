@@ -8,7 +8,7 @@ Multi-cell convenience wrapper around `metrics.evaluate_submission`: discovers c
 
 Cells whose hidden truth is absent (the eval seeds in the release packaging — truth is maintainer-only) are skipped with a notice, as are cells without a matching submission subdirectory. A scoring error in one cell does not stop the others; it is reported and reflected in the exit code.
 
-Actual-data arm. SYNTHETIC cells score Layers 1/2/3 and are the ranked leaderboard. The ACTUAL-data arm (real POS panel) scores Layer 1 + Layer 4 only — it is PUBLIC-ONLY by design (no hidden truth EVER exists on real data), so it must NOT be caught by the "hidden truth absent → skip" branch that withholds eval-seed synthetic cells. Because an actual cell is a PRE-BUILT dict (`metrics.actual_data.load_actual_cell(data_root)`), not a synthetic cell dir discoverable under `--cells-root`, it is routed through `evaluate_prebuilt` from a separate `--actual-data-root`, NOT through `discover_cells`. The actual arm is a DIAGNOSTIC PANEL in its own `(cell_type, data_arm)` leaderboard partition — never ranked into the synthetic own-price-WMPE headline.
+Actual-data arm. SYNTHETIC cells score sales forecasting/2/3 and are the ranked leaderboard. The ACTUAL-data arm (real POS panel) scores sales forecasting + validity checks only — it is PUBLIC-ONLY by design (no hidden truth EVER exists on real data), so it must NOT be caught by the "hidden truth absent → skip" branch that withholds eval-seed synthetic cells. Because an actual cell is a PRE-BUILT dict (`metrics.actual_data.load_actual_cell(data_root)`), not a synthetic cell dir discoverable under `--cells-root`, it is routed through `evaluate_prebuilt` from a separate `--actual-data-root`, NOT through `discover_cells`. The actual arm is a DIAGNOSTIC PANEL in its own `(cell_type, data_arm)` leaderboard partition — never ranked into the synthetic own-price-WMPE headline.
 """
 
 from __future__ import annotations
@@ -82,7 +82,7 @@ def evaluate_all(
         out_dir.mkdir(parents=True, exist_ok=True)
         out_path = out_dir / f"{submission_name}__{slug}.json"
         out_path.write_text(json.dumps(scores, indent=2, default=float), encoding="utf-8")
-        headline = (scores.get("layer3_counterfactual") or {}).get("headline") or {}
+        headline = (scores.get("counterfactual_prediction") or {}).get("headline") or {}
         own_wmpe = (headline.get("own_price") or {}).get("own_price_wmpe")
         sub_wape = (headline.get("substitution") or {}).get("substitution_wape")
         own_str = f"{own_wmpe:+.4f}" if own_wmpe is not None else "n/a"
@@ -98,7 +98,7 @@ def evaluate_actual_arm(
     submission_name: str,
     out_dir: Path,
 ) -> tuple[dict[str, Any] | None, dict[str, str] | None]:
-    """Score the ACTUAL-data arm (Layer 1 + Layer 4 only), never blanket-skipped.
+    """Score the ACTUAL-data arm (sales forecasting + validity checks only), never blanket-skipped.
 
     The actual cell is a PRE-BUILT dict (`load_actual_cell`) rather than a synthetic cell dir under `--cells-root`, so it is loaded here from `actual_data_root` and routed through `evaluate_prebuilt` — it must NOT pass through the synthetic "hidden truth absent → skip" branch, because real data has NO hidden truth by design. Returns `(scores, None)` on success or `(None, {cell, reason})` when the real panel is not present / scoring failed.
     """
@@ -120,9 +120,9 @@ def evaluate_actual_arm(
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{submission_name}__{slug}__actual.json"
     out_path.write_text(json.dumps(scores, indent=2, default=float), encoding="utf-8")
-    l4 = scores.get("layer4_validity_actual") or {}
+    l4 = scores.get("validity_checks_actual") or {}
     own_sign = (l4.get("own_price_sign") or {}).get("frac_correct_sign")
-    l1 = scores.get("layer1_demand_prediction") or {}
+    l1 = scores.get("sales_forecasting") or {}
     l1_wmape = l1.get("demand_wmape")
     own_str = f"{own_sign:.3f}" if own_sign is not None else "n/a"
     l1_str = f"{l1_wmape:.4f}" if l1_wmape is not None else "n/a"
@@ -162,7 +162,7 @@ def main() -> None:
         type=Path,
         default=None,
         help="Optional Dominick's POS panel root (the Kilts category files, e.g. wtti.csv). When given, the actual-data "
-        "arm (Layer 1 + Layer 4) is scored via load_actual_cell -> evaluate_prebuilt "
+        "arm (sales forecasting + validity checks) is scored via load_actual_cell -> evaluate_prebuilt "
         "and added as its OWN (cell_type, data_arm) diagnostic partition — NOT ranked "
         "into the synthetic own-price-WMPE headline. Absent panel is reported, "
         "never treated as a synthetic hidden-truth skip.",

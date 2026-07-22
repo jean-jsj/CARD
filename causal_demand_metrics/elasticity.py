@@ -1,4 +1,4 @@
-"""Layer 2 elasticity-estimation metrics.
+"""elasticity recovery elasticity-estimation metrics.
 
 All elasticities — model-side and ground-truth — are defined via a 1% price-perturbation construction at observed test-window prices:
 
@@ -13,7 +13,7 @@ Ground truth per family:
 
 Scoring covers four dimensions: Direction (own sign accuracy; cross F1 per substitute/complement/unrelated class), Ranking (cross NDCG), Magnitude (WMAPE, RMSE), Bias (WMPE, mean signed error), with cross-price metrics stratified by true relationship class. The unrelated-class boundary is the bottom `unrelated_threshold_pct` (default 20%) percentile of the classification basis |ε|, reported with the scores.
 
-Purchase incidence. The scored truth ε* is the **TOTAL** elasticity — q_i = M(p)·s_i(p), incidence margin included — because participants model units and any correct units-based model estimates the total effect. Since ln q_i = ln M + ln s_i, the decomposition ε_total(i,j) = ε_M(j) + ε_cond(i,j) is exactly additive; the DGP emits the conditional (fixed-M switching) matrix alongside the total. The substitute/complement/unrelated **classification runs on the conditional elasticity** when supplied (pure substitution semantics — under totals, the common ε_M(j) < 0 shift would turn zero-switching pairs into apparent complements and make the bottom-percentile band select knife-edge cancellation pairs). Predictions are classed on ε̂_ij − ε*_M(j) (the true incidence component netted out — truth-anchored boundaries, same as the threshold itself); magnitude/bias/ranking are always scored on totals. The own-price diagonal is intentionally scored on totals too, not on the conditional/switching basis: this module is a total-elasticity accuracy diagnostic, whereas category-netting belongs to the Layer-3 headline (``headline_decomposition.py``).
+Purchase incidence. The scored truth ε* is the **TOTAL** elasticity — q_i = M(p)·s_i(p), incidence margin included — because participants model units and any correct units-based model estimates the total effect. Since ln q_i = ln M + ln s_i, the decomposition ε_total(i,j) = ε_M(j) + ε_cond(i,j) is exactly additive; the DGP emits the conditional (fixed-M switching) matrix alongside the total. The substitute/complement/unrelated **classification runs on the conditional elasticity** when supplied (pure substitution semantics — under totals, the common ε_M(j) < 0 shift would turn zero-switching pairs into apparent complements and make the bottom-percentile band select knife-edge cancellation pairs). Predictions are classed on ε̂_ij − ε*_M(j) (the true incidence component netted out — truth-anchored boundaries, same as the threshold itself); magnitude/bias/ranking are always scored on totals. The own-price diagonal is intentionally scored on totals too, not on the conditional/switching basis: this module is a total-elasticity accuracy diagnostic, whereas category-netting belongs to the counterfactual prediction headline (``headline_decomposition.py``).
 """
 
 from __future__ import annotations
@@ -216,7 +216,7 @@ def elasticity_scores(
         "classification_basis": classification_basis,
     }
     return {
-        "metric": "layer2_elasticity_estimation",
+        "metric": "elasticity_recovery",
         "truth_definition": "total_effect_incidence_plus_switching",
         "n_products": j,
         "n_matrix_entries_missing_in_submission": n_missing,

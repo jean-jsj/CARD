@@ -27,7 +27,7 @@ def _canned_scores(slug: str) -> dict:
         "schema_version": 1,
         "submission_name": "m",
         "cell_slug": slug,
-        "layer3_counterfactual": {
+        "counterfactual_prediction": {
             "headline_scenario": {"distribution": {"headline": 0.5, "n_store_weeks": 10}}
         },
     }

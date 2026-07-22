@@ -1,11 +1,11 @@
 """Participant-facing evaluation harness for the causal-demand benchmark.
 
-Scores submissions against a benchmark cell directory across the evaluation layers:
+Scores submissions against a benchmark cell directory across the evaluation tasks:
 
-* **Layer 1** — demand prediction (revenue-weighted WMAPE / WMPE) on the held-out weeks; runs on both the synthetic and actual-data arms.
-* **Layer 2** — elasticity estimation (J×J matrix: sign / F1 / NDCG / WMAPE / RMSE / WMPE, substitute-complement-unrelated stratification).
-* **Layer 3** — counterfactual demand response (headline): a PAIR of pooled numbers on the flagship +10% scenario — signed own-price WMPE (identification bias; the leaderboard ranks by |WMPE| ascending) and unsigned substitution WAPE on the competitor Δq (both category-netted, micro-averaged; see SUBMISSION_FORMAT.md).
-* **Layer 4** — label-free causal-coherence validity checks; the scored layer of the actual-data arm (real data has no counterfactual truth).
+* **Sales forecasting** — forecast error / bias (revenue-weighted WMAPE / WMPE) on the held-out weeks; runs on both the synthetic and actual-data arms.
+* **Elasticity recovery** — the J×J matrix: sign / F1 / NDCG / WMAPE / RMSE / WMPE, substitute-complement-unrelated stratification.
+* **Counterfactual prediction** (headline): a PAIR of pooled numbers on the flagship +10% scenario — own-price bias (signed WMPE; the leaderboard ranks by |bias| ascending) and substitution error (unsigned WAPE) on the competitor Δq (both category-netted, micro-averaged; see SUBMISSION_FORMAT.md).
+* **Validity checks** — label-free causal-coherence checks; the scored task of the actual-data arm (real data has no counterfactual truth).
 
 The deliverable is a score per model and a leaderboard — no statistical tests, no across-model comparison machinery. The metric mathematics lives in the standalone `causal_demand_metrics` package (single source of truth); this package adds the scoring interface:
 

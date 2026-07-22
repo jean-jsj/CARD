@@ -1,6 +1,6 @@
 """Actual-data cell adapter — the Dominick's (Kilts Center) real-POS input.
 
-The **actual-data arm** (Layer 1 + Layer 4 on real point-of-sale data). Layers 2 and 3 need hidden counterfactual truth, so they stay synthetic-only; **Layer 1** (forecast vs. observed sales) and **Layer 4** (label-free coherence) are computable on REAL data.
+The **actual-data arm** (sales forecasting + validity checks on real point-of-sale data). elasticity recovery and 3 need hidden counterfactual truth, so they stay synthetic-only; **sales forecasting** (forecast vs. observed sales) and **validity checks** (label-free coherence) are computable on REAL data.
 
 The real panel is the **Dominick's Finer Foods scanner dataset** published by the James M. Kilts Center for Marketing, University of Chicago Booth School of Business (https://www.chicagobooth.edu/research/kilts/research-data/dominicks): weekly store x UPC movement for ~100 Chicago-area stores, 1989-1997. The data are free for academic research (attribution to the Kilts Center required) and are NOT redistributed with this benchmark — download the category files from the Kilts Center and point ``data_root`` at them; this loader is deterministic, so every participant reconstructs the identical panel.
 
@@ -13,7 +13,7 @@ Expected files under ``data_root`` (the Kilts CSV export for one category):
 
 The panel is mapped onto the synthetic public-schema columns (``product_id, store_id, week, units, dollars, price, promo_flag, supply_cost_proxy``), the product universe is the smallest top-revenue UPC set covering ``UNIVERSE_REVENUE_SHARE`` of training-window revenue (mirroring the synthetic 80%-revenue SKU rule), and the train/held-out split is IDENTICAL to the synthetic cells (``eval_weeks`` = last ``holdout_weeks`` of the window).
 
-Because the Dominick's files are public, the actual-arm Layer-1 "withheld" sales are public too — actual-arm Layer 1 is an honor-system diagnostic, not an adversarially-hidden target (the synthetic arm carries the hidden-truth scoring).
+Because the Dominick's files are public, the actual-arm sales forecasting "withheld" sales are public too — actual-arm sales forecasting is an honor-system diagnostic, not an adversarially-hidden target (the synthetic arm carries the hidden-truth scoring).
 
 Verified against the real bathroom-tissue feed (weeks 1-399, 93 stores, 128 UPCs): the default cell is the most recent 156-week window (244-399; 142 observed weeks — the chain has four known whole-feed gap stretches), 35-UPC universe, ~312k rows, promo rate ~16%, median cost/price ~0.83. The week-coverage anchor and the price-outlier guard below exist because of two measured artifacts: end-of-feed thinning (not present in this category, but guarded) and one isolated 650x-median price recording error.
 
@@ -21,7 +21,7 @@ Cell-dict contract mirrored from ``metrics.evaluate_submission._load_cell``::
 
     {cfg, family, transactions_full, training, eval_weeks}
 
-plus ``data_arm = "actual"`` (this module is the sole author of that value) and ``sweep_context`` — the PUBLIC own-price sweep intervention table the participant's ``layer4_actual`` predicted-dq file is scored against. No hidden truth of any kind is attached — Layer 4 is label-free.
+plus ``data_arm = "actual"`` (this module is the sole author of that value) and ``sweep_context`` — the PUBLIC own-price sweep intervention table the participant's ``validity_actual`` predicted-dq file is scored against. No hidden truth of any kind is attached — validity checks is label-free.
 
 :func:`build_fixture_actual_cell` DERIVES a valid actual-arm cell from an existing synthetic dev cell (strips the hidden truth), so the actual-arm path can be exercised without the real data.
 """
@@ -64,7 +64,7 @@ DEFAULT_HOLDOUT_WEEKS = 16
 #: Own-price-sweep magnitude (both signs). ±10% mirrors the synthetic flagship ±X% headline scenario.
 FIXTURE_SWEEP_PCT = 0.10
 
-#: Exact column contract for ``sweep_context``. This is the public own-price-sweep table the ``layer4_actual`` file is scored against; note ``baseline_units`` (needed to net dq) rather than the raw public CSV's ``promo_cost``.
+#: Exact column contract for ``sweep_context``. This is the public own-price-sweep table the ``validity_actual`` file is scored against; note ``baseline_units`` (needed to net dq) rather than the raw public CSV's ``promo_cost``.
 SWEEP_CONTEXT_COLUMNS = [
     "intervention_id",
     "product_id",
@@ -98,7 +98,7 @@ def load_actual_cell(
 ) -> dict[str, Any]:
     """Load ONE actual-data cell from the Dominick's category files at ``data_root``.
 
-    Reads ``w<category>.csv`` (movement) — download it from the Kilts Center — applies the standard Dominick's hygiene (drop ``OK == 0``, non-positive price), maps to the synthetic public-panel schema, restricts to the top-revenue universe (:data:`UNIVERSE_REVENUE_SHARE` of training-window revenue), takes the contiguous ``window_weeks`` window ending at ``window_end`` (default: latest week in the source), and applies the IDENTICAL split rule as the synthetic cells: ``eval_weeks`` = last ``holdout_weeks`` weeks of the window; ``training`` = the rest. Layer 1 fits on ``training``, forecasts ``eval_weeks``; Layer 4 places the ``sweep_context`` interventions OVER the ``eval_weeks`` store-weeks (same placement as the synthetic Layer-3 sweep).
+    Reads ``w<category>.csv`` (movement) — download it from the Kilts Center — applies the standard Dominick's hygiene (drop ``OK == 0``, non-positive price), maps to the synthetic public-panel schema, restricts to the top-revenue universe (:data:`UNIVERSE_REVENUE_SHARE` of training-window revenue), takes the contiguous ``window_weeks`` window ending at ``window_end`` (default: latest week in the source), and applies the IDENTICAL split rule as the synthetic cells: ``eval_weeks`` = last ``holdout_weeks`` weeks of the window; ``training`` = the rest. sales forecasting fits on ``training``, forecasts ``eval_weeks``; validity checks places the ``sweep_context`` interventions OVER the ``eval_weeks`` store-weeks (same placement as the synthetic counterfactual prediction sweep).
 
     Returns the cell dict: ``{cfg, family="actual", transactions_full, training, eval_weeks, data_arm="actual", sweep_context}``.
 
@@ -233,7 +233,7 @@ def _load_movement(movement_path: Path) -> pd.DataFrame:
         }
     )
 
-    # Price-outlier guard: isolated recording errors (unit price many-fold the product's level) would poison the price series and the Layer-4 sweep baselines. Deterministic rule: drop rows above PRICE_OUTLIER_FOLD x the product's median unit price.
+    # Price-outlier guard: isolated recording errors (unit price many-fold the product's level) would poison the price series and the validity checks sweep baselines. Deterministic rule: drop rows above PRICE_OUTLIER_FOLD x the product's median unit price.
     med_price = frame.groupby("product_id")["price"].transform("median")
     frame = frame[frame["price"] <= PRICE_OUTLIER_FOLD * med_price]
 
@@ -281,7 +281,7 @@ def build_fixture_actual_cell(synthetic_cell_dir: Path) -> dict[str, Any]:
     Returns
     -------
     dict
-        Keys ``{cfg, family, transactions_full, training, eval_weeks, data_arm, sweep_context}`` with ``family == "actual"`` and ``data_arm == "actual"``. ``sweep_context`` is the full own-price sweep: one intervention per product, BOTH signs, anchored on the ``eval_weeks`` store-weeks, columns exactly :data:`SWEEP_CONTEXT_COLUMNS`. No elasticity file is produced or expected (own-elasticity band is derived from dq downstream). No hidden truth is attached — Layer 4 is label-free.
+        Keys ``{cfg, family, transactions_full, training, eval_weeks, data_arm, sweep_context}`` with ``family == "actual"`` and ``data_arm == "actual"``. ``sweep_context`` is the full own-price sweep: one intervention per product, BOTH signs, anchored on the ``eval_weeks`` store-weeks, columns exactly :data:`SWEEP_CONTEXT_COLUMNS`. No elasticity file is produced or expected (own-elasticity band is derived from dq downstream). No hidden truth is attached — validity checks is label-free.
     """
     # Import here (read-only) to avoid a hard module-load coupling and any import side effects at `import metrics.actual_data` time.
     from metrics.evaluate_submission import _load_cell
@@ -319,7 +319,7 @@ def _synthesize_sweep_context(
 ) -> pd.DataFrame:
     """Build the public own-price sweep table from the observed panel + products.
 
-    Full own-price sweep: ONE intervention per product, moved ONCE, BOTH signs (+X% and −X%), so Layer-4 monotonicity pairs exist and the derived own-elasticity band covers every product. Interventions are anchored on the ``eval_weeks`` store-weeks (the held-out tail) — the SAME placement as the synthetic Layer-3 sweep, keeping the arm leak-free and structurally identical.
+    Full own-price sweep: ONE intervention per product, moved ONCE, BOTH signs (+X% and −X%), so validity checks monotonicity pairs exist and the derived own-elasticity band covers every product. Interventions are anchored on the ``eval_weeks`` store-weeks (the held-out tail) — the SAME placement as the synthetic counterfactual prediction sweep, keeping the arm leak-free and structurally identical.
     """
     products = _load_public_products(synthetic_cell_dir, transactions_full)
 

@@ -1,4 +1,4 @@
-"""Unit tests for the decomposed Layer-3 headline.
+"""Unit tests for the decomposed counterfactual prediction headline.
 
 own = signed WMPE on the category-netted focal Δq (pooled); substitution = unsigned WAPE (raw-mass L1) on the category-netted competitor Δq (pooled). Both net each side by its own category shift ΔM = ΣΔq, then micro-average (pool numerators and denominators, divide once). Hand-computed deterministic cases.
 """

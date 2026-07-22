@@ -61,10 +61,10 @@ def load_entries(subs: Path) -> dict[str, dict]:
                 if not p.exists():
                     continue
                 s = json.loads(p.read_text())
-                hl = s["layer3_counterfactual"]["headline"]
+                hl = s["counterfactual_prediction"]["headline"]
                 entry[fam][endo] = {
                     "own": hl["own_price"]["own_price_wmpe"],
-                    "l1": s["layer1_demand_prediction"]["demand_wmape"],
+                    "l1": s["sales_forecasting"]["demand_wmape"],
                 }
         if any(entry[fam] for fam, _ in FAMILIES):
             entries[d.name] = entry

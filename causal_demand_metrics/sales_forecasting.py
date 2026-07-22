@@ -1,4 +1,4 @@
-"""Layer 1 demand-prediction metrics.
+"""sales forecasting demand-prediction metrics.
 
 Revenue-weighted WMAPE (accuracy) and WMPE (bias) on demand forecasts under the observed pricing policy, over the chronological holdout window (the last `counterfactual_eval_weeks` weeks).
 
@@ -32,7 +32,7 @@ def revenue_weights(transactions_window: pd.DataFrame) -> pd.Series:
 
 
 def build_demand_truth(transactions_full: pd.DataFrame, eval_weeks: list[int]) -> pd.DataFrame:
-    """Observed holdout sales per (product, store, week) — the Layer-1 truth.
+    """Observed holdout sales per (product, store, week) — the sales forecasting truth.
 
     `transactions_full` is the hidden full panel (`hidden/transactions_full_hidden.csv`); the truth is its `units` column over the holdout window.
     """
@@ -76,7 +76,7 @@ def demand_prediction_scores(
         wmape = float((w * per_product["abs_err"]).sum() / denominator)
         wmpe = float((w * per_product["signed_err"]).sum() / denominator)
     return {
-        "metric": "layer1_demand_prediction",
+        "metric": "sales_forecasting",
         "demand_wmape": wmape,
         "demand_wmpe": wmpe,
         "n_truth_rows": int(len(truth)),

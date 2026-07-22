@@ -1,4 +1,4 @@
-"""Unit tests for Layer-4 validity checks (label-free, ground-truth-free).
+"""Unit tests for validity checks validity checks (label-free, ground-truth-free).
 
 Every metric reads only predictions + public price moves — no ``dq_true``, no ``eps_star`` — so these scores work on real POS data. Hand-computed cases.
 """
@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from causal_demand_metrics.layer4_validity import (
+from causal_demand_metrics.validity_checks import (
     coherence_gate,
     cross_elasticity_plausibility,
     own_elasticity_range_coverage,

@@ -1,8 +1,8 @@
 # causal_demand_metrics/
 
-**Pure scoring math** — the single source of truth for all evaluation layers, shared by the construction pipeline and the participant harness (`metrics/`). numpy + pandas only: no file I/O, no DGP code, no hidden-truth generation. pip-installable.
+**Pure scoring math** — the single source of truth for all evaluation tasks, shared by the construction pipeline and the participant harness (`metrics/`). numpy + pandas only: no file I/O, no DGP code, no hidden-truth generation. pip-installable.
 
-## What it scores (four layers)
+## What it scores (four tasks)
 
 **Sales forecasting.** Accuracy of held-out observed-sales forecasts, revenue-weighted across products:
 - **Demand-WMAPE**
@@ -37,9 +37,9 @@ Raising one product's price produces a vector of demand changes across the whole
 
 Both numbers are micro-averaged: numerators and denominators are pooled across all store-weeks and divided once (no per-store-week ratio-then-average, no renormalization). The leaderboard ranks by **|own-price WMPE| ascending** (closest-to-zero bias first); the substitution WAPE rides alongside.
 
-## Which layers score on which data arm
+## Which tasks score on which data arm
 
-| Layer | Synthetic arm | Actual arm |
+| Task | Synthetic arm | Actual arm |
 |---|---|---|
 | Sales forecasting | ✓ scored | ✓ scored |
 | Elasticity recovery | ✓ scored | — (no ground truth) |
@@ -52,10 +52,10 @@ The actual-data results are a **DIAGNOSTIC PANEL**, reported in their own `(cell
 
 | Module | Scores |
 |---|---|
-| `layer1_demand` | Revenue-weighted Demand-WMAPE / WMPE on observed holdout sales. |
-| `layer2_elasticity` | J×J elasticity matrix (sign / class-F1 / NDCG / magnitude); closed-form log-log truth. |
+| `sales_forecasting` | Revenue-weighted Demand-WMAPE / WMPE on observed holdout sales. |
+| `elasticity` | J×J elasticity matrix (sign / class-F1 / NDCG / magnitude); closed-form log-log truth. |
 | `headline_decomposition` | The counterfactual headline (own-price bias, signed WMPE, + substitution error, unsigned competitor-Δq WAPE, both category-netted, pooled). |
-| `layer4_validity` | Label-free causal-coherence checks with bootstrap CIs: own-price sign, substitution sign (weighted + unweighted, complement-aware), own/cross elasticity plausibility, ± sweep monotonicity, PASS/WARN/FAIL gate. **No hidden truth — scores on real POS.** |
+| `validity_checks` | Label-free causal-coherence checks with bootstrap CIs: own-price sign, substitution sign (weighted + unweighted, complement-aware), own/cross elasticity plausibility, ± sweep monotonicity, PASS/WARN/FAIL gate. **No hidden truth — scores on real POS.** |
 
 ## Design constraints
 

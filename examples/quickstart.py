@@ -2,9 +2,9 @@
 
 Demonstrates the three submission files end to end (you should beat this easily):
 
-* Layer 1 — per (product, store), predict the mean units over the last 8 training weeks, for every holdout (product, store, week). The training panel records positive-sales rows only, so this simple mean ignores zero-sales weeks — one of many things a real model should do better.
-* Layer 2 — the all-zeros J x J elasticity matrix (the no-information value).
-* Layer 3 — predicted_delta_units = 0 everywhere ("prices don't matter").
+* sales forecasting — per (product, store), predict the mean units over the last 8 training weeks, for every holdout (product, store, week). The training panel records positive-sales rows only, so this simple mean ignores zero-sales weeks — one of many things a real model should do better.
+* elasticity recovery — the all-zeros J x J elasticity matrix (the no-information value).
+* counterfactual prediction — predicted_delta_units = 0 everywhere ("prices don't matter").
 
 Usage:
     python examples/quickstart.py --cell-dir benchmark/dev/<cell_slug>
@@ -31,7 +31,7 @@ def build_submission(cell_dir: Path, out_dir: Path) -> None:
     holdout = pd.read_csv(public / "transactions_holdout_context_public.csv")
     products = pd.read_csv(public / "products_public.csv")
 
-    # Layer 1: mean units per (product, store) over the last N training weeks.
+    # sales forecasting: mean units per (product, store) over the last N training weeks.
     recent = train[train["week"] > train["week"].max() - LAST_N_TRAIN_WEEKS]
     mean_units = (
         recent.groupby(["product_id", "store_id"])["units"].mean().rename("predicted_units")
@@ -40,23 +40,23 @@ def build_submission(cell_dir: Path, out_dir: Path) -> None:
         mean_units, on=["product_id", "store_id"], how="left"
     )
     l1["predicted_units"] = l1["predicted_units"].fillna(0.0)
-    l1.to_csv(out_dir / "layer1_demand_predictions.csv", index=False)
+    l1.to_csv(out_dir / "forecast_predictions.csv", index=False)
 
-    # Layer 2: all-zeros elasticity matrix (diagonal included).
+    # elasticity recovery: all-zeros elasticity matrix (diagonal included).
     ids = products["product_id"].tolist()
     l2 = pd.DataFrame(
         [(j, i, 0.0) for j, i in iproduct(ids, ids)],
         columns=["priced_product_id", "affected_product_id", "elasticity"],
     )
-    l2.to_csv(out_dir / "layer2_elasticities.csv", index=False)
+    l2.to_csv(out_dir / "elasticity_matrix.csv", index=False)
 
-    # Layer 3: zero demand change for every sweep-context row.
+    # counterfactual prediction: zero demand change for every sweep-context row.
     sweep = pd.read_csv(
         public / "counterfactual_sweep_context_public.csv",
         usecols=["intervention_id", "product_id", "store_id", "week"],
     )
     l3 = sweep.drop_duplicates().assign(predicted_delta_units=0.0)
-    l3.to_csv(out_dir / "layer3_counterfactual_deltas.csv", index=False)
+    l3.to_csv(out_dir / "counterfactual_deltas.csv", index=False)
 
 
 def main() -> int:

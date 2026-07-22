@@ -2,16 +2,16 @@
 
 Flattens a set of `evaluate_submission` scores.json files (one per cell — typically the dev seed's 4 cells) into two spreadsheet-friendly tables:
 
-1. **L1/L2 diagnostics** (`--out`): rows = cells, columns = the Layer-1
-   demand-prediction metrics and the full Layer-2 elasticity scorecard (own-price block; cross-price NDCG, per-class F1, magnitude/bias for all pairs and per true relationship class). Reading a row says which world hurts the model; reading a column says which capability is missing.
-2. **L3 intervention matrix** (`--layer3-out`): rows = cells, columns = the
+1. **Forecasting + elasticity diagnostics** (`--out`): rows = cells, columns = the
+   sales-forecasting metrics and the full elasticity-recovery scorecard (own-price block; cross-price NDCG, per-class F1, magnitude/bias for all pairs and per true relationship class). Reading a row says which world hurts the model; reading a column says which capability is missing.
+2. **Counterfactual intervention matrix** (`--counterfactual-out`): rows = cells, columns = the
    16 protocol interventions, values = the substitution WAPE. The headline scenario is one of these columns; the rest are the robustness surface (e.g. good on single-product moves but collapsing on brand portfolios = weak substitution structure).
 
 Neither file feeds the leaderboard.
 
 Usage:
     python3 -m metrics.diagnostics my_scores/*.json \
-        --out diagnostics.csv --layer3-out interventions.csv
+        --out diagnostics.csv --counterfactual-out interventions.csv
 """
 
 from __future__ import annotations
@@ -24,16 +24,16 @@ from typing import Any
 import pandas as pd
 
 
-def _layer12_row(scores: dict[str, Any]) -> dict[str, Any]:
+def _forecast_elasticity_row(scores: dict[str, Any]) -> dict[str, Any]:
     row: dict[str, Any] = {"cell": scores.get("cell_slug") or Path(scores.get("cell_dir", "")).name}
-    layer1 = scores.get("layer1_demand_prediction", {})
-    row["l1_demand_wmape"] = layer1.get("demand_wmape")
-    row["l1_demand_wmpe"] = layer1.get("demand_wmpe")
-    layer2 = scores.get("layer2_elasticity_estimation", {})
-    own = layer2.get("own_price") or {}
+    forecasting = scores.get("sales_forecasting", {})
+    row["l1_demand_wmape"] = forecasting.get("demand_wmape")
+    row["l1_demand_wmpe"] = forecasting.get("demand_wmpe")
+    elasticity = scores.get("elasticity_recovery", {})
+    own = elasticity.get("own_price") or {}
     for key in ("sign_accuracy", "wmape", "rmse", "wmpe", "mean_signed_error"):
         row[f"l2_own_{key}"] = own.get(key)
-    cross = layer2.get("cross_price") or {}
+    cross = elasticity.get("cross_price") or {}
     row["l2_cross_ndcg"] = cross.get("ndcg")
     row["l2_cross_ndcg_at_5"] = cross.get("ndcg_at_5")
     for cls, block in (cross.get("f1_per_class") or {}).items():
@@ -47,12 +47,12 @@ def _layer12_row(scores: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
-def _layer3_row(scores: dict[str, Any]) -> dict[str, Any]:
+def _counterfactual_row(scores: dict[str, Any]) -> dict[str, Any]:
     """One row of the L3 intervention matrix: the substitution WAPE per
     intervention."""
     row: dict[str, Any] = {"cell": scores.get("cell_slug") or Path(scores.get("cell_dir", "")).name}
-    layer3 = scores.get("layer3_counterfactual", {})
-    for intervention in layer3.get("interventions", []):
+    counterfactual = scores.get("counterfactual_prediction", {})
+    for intervention in counterfactual.get("interventions", []):
         value = intervention.get("substitution_wape")
         row[intervention.get("intervention_id")] = value
     return row
@@ -75,8 +75,8 @@ INTERVENTION_ORDER = [
 
 
 def build_tables(score_payloads: list[dict[str, Any]]) -> tuple[pd.DataFrame, pd.DataFrame]:
-    l12 = pd.DataFrame([_layer12_row(s) for s in score_payloads]).sort_values("cell").reset_index(drop=True)
-    l3 = pd.DataFrame([_layer3_row(s) for s in score_payloads]).sort_values("cell").reset_index(drop=True)
+    l12 = pd.DataFrame([_forecast_elasticity_row(s) for s in score_payloads]).sort_values("cell").reset_index(drop=True)
+    l3 = pd.DataFrame([_counterfactual_row(s) for s in score_payloads]).sort_values("cell").reset_index(drop=True)
     ordered = ["cell"] + [c for c in INTERVENTION_ORDER if c in l3.columns] + [
         c for c in l3.columns if c != "cell" and c not in INTERVENTION_ORDER
     ]
@@ -86,16 +86,16 @@ def build_tables(score_payloads: list[dict[str, Any]]) -> tuple[pd.DataFrame, pd
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("scores", nargs="+", type=Path)
-    parser.add_argument("--out", type=Path, required=True, help="L1/L2 diagnostics CSV")
-    parser.add_argument("--layer3-out", type=Path, default=None, help="L3 intervention-matrix CSV")
+    parser.add_argument("--out", type=Path, required=True, help="forecasting + elasticity diagnostics CSV")
+    parser.add_argument("--counterfactual-out", type=Path, default=None, help="counterfactual intervention-matrix CSV")
     args = parser.parse_args()
     payloads = [json.loads(path.read_text()) for path in args.scores]
     l12, l3 = build_tables(payloads)
     l12.to_csv(args.out, index=False)
     print(f"wrote {args.out} ({len(l12)} cells x {len(l12.columns) - 1} metrics)")
-    if args.layer3_out:
-        l3.to_csv(args.layer3_out, index=False)
-        print(f"wrote {args.layer3_out} ({len(l3)} cells x {len(l3.columns) - 1} interventions)")
+    if args.counterfactual_out:
+        l3.to_csv(args.counterfactual_out, index=False)
+        print(f"wrote {args.counterfactual_out} ({len(l3)} cells x {len(l3.columns) - 1} interventions)")
 
 
 if __name__ == "__main__":

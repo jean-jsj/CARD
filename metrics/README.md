@@ -8,13 +8,13 @@ Up to three CSVs per cell on the synthetic arm, two on the actual-data arm (see 
 
 | File | Contents |
 |---|---|
-| `layer1_demand_predictions.csv` | Forecast units for the holdout weeks. |
-| `layer2_elasticities.csv` | Your J×J own/cross elasticity matrix. |
-| `layer3_counterfactual_deltas.csv` | Predicted demand change per product per intervention. |
-| `layer1_actual_predictions.csv` | (actual arm) Forecast units on the real POS panel. |
-| `layer4_actual_deltas.csv` | (actual arm) Predicted Δq under the public own-price sweep. |
+| `forecast_predictions.csv` | Forecast units for the holdout weeks. |
+| `elasticity_matrix.csv` | Your J×J own/cross elasticity matrix. |
+| `counterfactual_deltas.csv` | Predicted demand change per product per intervention. |
+| `actual_forecast_predictions.csv` | (actual arm) Forecast units on the real POS panel. |
+| `actual_validity_deltas.csv` | (actual arm) Predicted Δq under the public own-price sweep. |
 
-Any layer you omit scores `not_submitted`; a malformed file scores `invalid_format` (the others still score). The CSV formats are stable across metric versions.
+Any task you omit scores `not_submitted`; a malformed file scores `invalid_format` (the others still score). The CSV formats are stable across metric versions.
 
 ## What you get back
 
@@ -43,7 +43,7 @@ python3 -m metrics.evaluate_all --cells-root benchmark/dev/ \
     --submissions-root my_model/ --submission-name my_model --out-dir scores/
 
 # insight CSVs
-python3 -m metrics.diagnostics scores/*.json --out diag.csv --layer3-out ivs.csv
+python3 -m metrics.diagnostics scores/*.json --out diag.csv --counterfactual-out ivs.csv
 ```
 
 ## CLI map

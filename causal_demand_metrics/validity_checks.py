@@ -1,6 +1,6 @@
-"""Layer-4 validity checks — assumption-free, ground-truth-free sanity scores.
+"""validity checks validity checks — assumption-free, ground-truth-free sanity scores.
 
-Layers 1-3 all require the hidden truth (dq_true / eps_star). On REAL POS data no such truth exists, so a submission cannot be scored at all. This layer fills the gap: every metric here reads only the participant's OWN predictions plus the public intervention price moves, so it is computable on any panel — synthetic or real — with no labels. It does not grade accuracy; it grades whether predictions are causally *coherent*, and each rate carries a bootstrap confidence interval:
+sales forecasting-3 all require the hidden truth (dq_true / eps_star). On REAL POS data no such truth exists, so a submission cannot be scored at all. This task fills the gap: every metric here reads only the participant's OWN predictions plus the public intervention price moves, so it is computable on any panel — synthetic or real — with no labels. It does not grade accuracy; it grades whether predictions are causally *coherent*, and each rate carries a bootstrap confidence interval:
 
 * **own-price sign validity** — law of demand: a price increase must lower the focal product's units (and a cut must raise them). Fraction of focal store-weeks whose predicted Δq has the right sign.
 * **substitution sign validity** — under a focal price hike, demand should flow TO competitors (and away under a cut). Reported two ways — the |Δq|-weighted redistribution mass AND the unweighted per-competitor count — after netting the category margin (so a pure contraction is not mistaken for substitution). A per-product ``complements`` set flips the expected sign for known complements, so the substitutes-only prior is configurable per category.
@@ -8,7 +8,7 @@ Layers 1-3 all require the hidden truth (dq_true / eps_star). On REAL POS data n
 * **cross-elasticity plausibility** — assumption-light magnitude sanity on the off-diagonal: fraction extreme, and fraction whose |cross| exceeds the priced product's own |ε| (a cross effect should not dominate the own effect).
 * **monotonicity** — across a sign-flipped sweep (+x% and −x% on the same product), the focal response should flip sign. Fraction of store-weeks consistent.
 
-The rates are causal-coherence GATES, not a ranker: ``coherence_gate`` folds them into a PASS / WARN / FAIL verdict against tunable thresholds. A model can pass every gate and still be badly wrong on magnitudes — pair Layer 4 with the truth-based headline (or IV-anchored / backtest scores on real data).
+The rates are causal-coherence GATES, not a ranker: ``coherence_gate`` folds them into a PASS / WARN / FAIL verdict against tunable thresholds. A model can pass every gate and still be badly wrong on magnitudes — pair validity checks with the truth-based headline (or IV-anchored / backtest scores on real data).
 
 Pure numpy/pandas, no I/O, no DGP, no hidden-truth columns. Frames carry only ``product_id, store_id, week, baseline_units, dq_pred``; ``dq_true`` is never read. Bootstrap CIs use a fixed default seed for reproducibility.
 """
@@ -110,7 +110,7 @@ def own_price_sign_validity(
     indicator = (np.sign(dq[nonzero]) == expected).astype(float)
     correct = int(indicator.sum())
     return {
-        "metric": "layer4_own_price_sign_validity",
+        "metric": "own_price_sign_validity",
         "focal_product_id": str(focal),
         "expected_sign": int(expected),
         "n_focal_store_weeks": int(len(foc)),
@@ -169,7 +169,7 @@ def substitution_sign_validity(
     prod_sig = prods[signal]
     if r_sig.size == 0:
         return {
-            "metric": "layer4_substitution_sign_validity",
+            "metric": "substitution_sign_validity",
             "focal_product_id": str(focal),
             "expected_competitor_sign": int(base_sign),
             "n_complements_seen": n_complements_seen,
@@ -185,7 +185,7 @@ def substitution_sign_validity(
     w = np.abs(r_sig)
     mass_frac = float(np.sum(w * correct) / np.sum(w)) if float(np.sum(w)) > 0 else None
     return {
-        "metric": "layer4_substitution_sign_validity",
+        "metric": "substitution_sign_validity",
         "focal_product_id": str(focal),
         "expected_competitor_sign": int(base_sign),
         "n_complements_seen": n_complements_seen,
@@ -214,13 +214,13 @@ def own_elasticity_range_coverage(
     own = own[np.isfinite(own)]
     n = int(own.size)
     if n == 0:
-        return {"metric": "layer4_own_elasticity_range_coverage", "n_products": 0,
+        return {"metric": "own_elasticity_range_coverage", "n_products": 0,
                 "frac_in_band": None, "frac_correct_sign": None, "frac_wrong_sign": None,
                 "frac_extreme": None, "band": list(band), "ci_in_band": None}
     lo, hi = band
     in_band = ((own >= lo) & (own <= hi)).astype(float)
     return {
-        "metric": "layer4_own_elasticity_range_coverage",
+        "metric": "own_elasticity_range_coverage",
         "n_products": n,
         "frac_in_band": float(in_band.mean()),
         "frac_correct_sign": float(np.mean(own < 0)),
@@ -248,7 +248,7 @@ def cross_elasticity_plausibility(
     """
     m = eps_hat.to_numpy(dtype=float)
     j = m.shape[0]
-    empty = {"metric": "layer4_cross_elasticity_plausibility", "n_cross_entries": 0,
+    empty = {"metric": "cross_elasticity_plausibility", "n_cross_entries": 0,
              "frac_cross_extreme": None, "frac_cross_exceeds_own": None,
              "frac_cross_matches_prior": None, "extreme_abs": float(extreme_abs)}
     if j < 2:
@@ -270,7 +270,7 @@ def cross_elasticity_plausibility(
         if expected_cross_sign is not None else None
     )
     return {
-        "metric": "layer4_cross_elasticity_plausibility",
+        "metric": "cross_elasticity_plausibility",
         "n_cross_entries": int(cross.size),
         "frac_cross_extreme": float(np.mean(np.abs(cross) > extreme_abs)),
         "frac_cross_exceeds_own": exceeds,
@@ -300,11 +300,11 @@ def sweep_monotonicity(
     m = up.merge(dn, on=["store_id", "week"], how="inner")
     n = int(len(m))
     if n == 0:
-        return {"metric": "layer4_sweep_monotonicity", "focal_product_id": str(focal),
+        return {"metric": "sweep_monotonicity", "focal_product_id": str(focal),
                 "n_store_weeks": 0, "frac_consistent": None, "ci": None}
     ok = ((m["dq_up"].to_numpy() < 0) & (m["dq_dn"].to_numpy() > 0)).astype(float)
     return {
-        "metric": "layer4_sweep_monotonicity",
+        "metric": "sweep_monotonicity",
         "focal_product_id": str(focal),
         "n_store_weeks": n,
         "frac_consistent": float(ok.mean()),
@@ -322,7 +322,7 @@ def coherence_gate(
 ) -> dict[str, Any]:
     """Fold the coherence rates into a PASS / WARN / FAIL verdict.
 
-    Thresholds are tunable defaults, NOT hidden DGP values. A wrong own-price counterfactual sign is a hard causal error (law-of-demand violation) → FAIL; weak substitution / band coverage / monotonicity / a stray positive own elasticity are soft coherence smells → WARN. Missing components are skipped, not penalised. This makes Layer 4 an explicit GATE, never a leaderboard ranker.
+    Thresholds are tunable defaults, NOT hidden DGP values. A wrong own-price counterfactual sign is a hard causal error (law-of-demand violation) → FAIL; weak substitution / band coverage / monotonicity / a stray positive own elasticity are soft coherence smells → WARN. Missing components are skipped, not penalised. This makes validity checks an explicit GATE, never a leaderboard ranker.
     """
     fails: list[str] = []
     warns: list[str] = []
@@ -354,7 +354,7 @@ def coherence_gate(
 
     verdict = "FAIL" if fails else ("WARN" if warns else "PASS")
     return {
-        "metric": "layer4_coherence_gate",
+        "metric": "validity_coherence_gate",
         "verdict": verdict,
         "fail_reasons": fails,
         "warn_reasons": warns,
@@ -383,10 +383,10 @@ def validity_scores(
 ) -> dict[str, Any]:
     """Bundle the label-free validity checks for one intervention.
 
-    `frame` is the scored intervention's deltas; `paired_frame` (optional) is the opposite-sign sweep on the same focal, enabling the monotonicity check. `eps_hat` (optional) adds own-elasticity range coverage + cross-elasticity plausibility. `complements` and `expected_cross_sign` pin category priors; `gate` appends the PASS/WARN/FAIL verdict. Every layer here is computable on real POS data — no hidden truth is consumed.
+    `frame` is the scored intervention's deltas; `paired_frame` (optional) is the opposite-sign sweep on the same focal, enabling the monotonicity check. `eps_hat` (optional) adds own-elasticity range coverage + cross-elasticity plausibility. `complements` and `expected_cross_sign` pin category priors; `gate` appends the PASS/WARN/FAIL verdict. Every task here is computable on real POS data — no hidden truth is consumed.
     """
     out: dict[str, Any] = {
-        "metric": "layer4_validity",
+        "metric": "validity_checks",
         "own_price_sign": own_price_sign_validity(
             frame, focal, price_increase=price_increase, n_boot=n_boot, seed=seed
         ),

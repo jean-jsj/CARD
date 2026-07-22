@@ -6,7 +6,7 @@ Scoring is local and instant on the released dev seed(s), whose `hidden/` truth 
 
 **Data-access rule:** your model may consume the cell's `public/` files only. `hidden/` exists for scoring, never as model input. The evaluation window is the last `counterfactual_eval_weeks` weeks of the transaction panel (16 in the released config) — the same window the counterfactual contexts cover.
 
-## `layer1_demand_predictions.csv` — sales forecasting
+## `forecast_predictions.csv` — sales forecasting
 
 A genuine forecasting holdout: the public transactions file covers the training window only; the holdout weeks' prices and promo flags ship as `public/transactions_holdout_context_public.csv` (your conditional-forecasting inputs), and their realized sales are withheld. One row per (product, store, week) of the holdout window:
 
@@ -19,7 +19,7 @@ A genuine forecasting holdout: the public transactions file covers the training 
 
 Scored with the **forecast error** (revenue-weighted WMAPE) and **forecast bias** (signed WMPE) against the **observed holdout sales** (conventional M5-style target; the observation noise floor is shared by all models). Revenue weights w_i come from the public training window, so they are participant-reproducible. Missing (product, store, week) rows are reported and flag the submission incomplete; only covered rows are scored.
 
-## `layer2_elasticities.csv` — elasticity recovery
+## `elasticity_matrix.csv` — elasticity recovery
 
 One row per ordered product pair (the full J×J matrix, diagonal included):
 
@@ -33,7 +33,7 @@ Compute ε̂ exactly as the spec defines it: perturb product j's price by +1% at
 
 Missing matrix entries are scored as 0.0 (the no-information value) and counted — a partial submission cannot shrink its own denominator.
 
-## `layer3_counterfactual_deltas.csv` — counterfactual demand response (headline)
+## `counterfactual_deltas.csv` — counterfactual demand response (headline)
 
 One row per (intervention, product, store, week) over the 16 sweep interventions published in `public/counterfactual_sweep_context_public.csv`.
 
@@ -60,9 +60,9 @@ The leaderboard ranks by **|own-price bias| ascending** (closest to zero first; 
 
 The submission files above are the **synthetic arm** (sales forecasting, elasticity recovery, and counterfactual prediction, scored against hidden truth). The benchmark also runs an **actual-data arm** on a real point-of-sale panel, which scores **sales forecasting** and the **validity checks** (label-free causal coherence) ONLY. Real data has no hidden counterfactual truth, so **elasticity recovery and counterfactual prediction are NOT scored on the actual arm** — they report `not_applicable_actual_data`. To enter the actual arm, submit the two files below.
 
-## `layer1_actual_predictions.csv` — sales forecasting (actual-data arm)
+## `actual_forecast_predictions.csv` — sales forecasting (actual-data arm)
 
-Identical columns to `layer1_demand_predictions.csv` — one row per (product, store, week) — but forecasting the REAL held-out POS sales.
+Identical columns to `forecast_predictions.csv` — one row per (product, store, week) — but forecasting the REAL held-out POS sales.
 
 | column | type | meaning |
 |---|---|---|
@@ -73,9 +73,9 @@ Identical columns to `layer1_demand_predictions.csv` — one row per (product, s
 
 Scored with the **SAME forecast error / forecast bias as the synthetic arm** (sales forecasting runs on BOTH arms), against the withheld observed real sales in the eval weeks.
 
-## `layer4_actual_deltas.csv` — validity checks (actual-data arm)
+## `actual_validity_deltas.csv` — validity checks (actual-data arm)
 
-Identical columns to `layer3_counterfactual_deltas.csv` — one row per (intervention, product, store, week) — carrying your predicted signed Δq̂ under the PUBLIC own-price sweep (every product moved once, in BOTH the + and − directions).
+Identical columns to `counterfactual_deltas.csv` — one row per (intervention, product, store, week) — carrying your predicted signed Δq̂ under the PUBLIC own-price sweep (every product moved once, in BOTH the + and − directions).
 
 | column | type | meaning |
 |---|---|---|

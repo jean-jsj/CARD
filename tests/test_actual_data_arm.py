@@ -1,8 +1,8 @@
 """Integration test for the actual-data arm.
 
-Fixture-driven, hermetic: no real Dominick's data, no simulation run. A hand-built in-memory actual cell (the ``build_fixture_actual_cell`` shape, minus the real data) flows through ``score_layer4`` and the ``evaluate_prebuilt`` arm routing, covering the integration the unit tests (``test_layer4_validity.py``) do not: a submission reaching the scorer, the arm returning L2/L3 as ``not_applicable_actual_data``, and the derived own-ε band diagonal.
+Fixture-driven, hermetic: no real Dominick's data, no simulation run. A hand-built in-memory actual cell (the ``build_fixture_actual_cell`` shape, minus the real data) flows through ``score_validity`` and the ``evaluate_prebuilt`` arm routing, covering the integration the unit tests (``test_validity_checks.py``) do not: a submission reaching the scorer, the arm returning L2/L3 as ``not_applicable_actual_data``, and the derived own-ε band diagonal.
 
-Asserts only on the dicts returned by ``score_layer4`` / ``evaluate_prebuilt``; never imports or re-implements the validity internals.
+Asserts only on the dicts returned by ``score_validity`` / ``evaluate_prebuilt``; never imports or re-implements the validity internals.
 """
 
 from __future__ import annotations
@@ -22,10 +22,10 @@ from metrics.actual_data import (  # noqa: E402
     load_actual_cell,
 )
 from metrics.evaluate_submission import (  # noqa: E402
-    LAYER1_ACTUAL_FILE,
-    LAYER4_ACTUAL_FILE,
+    ACTUAL_FORECAST_FILE,
+    ACTUAL_VALIDITY_FILE,
     evaluate_prebuilt,
-    score_layer4,
+    score_validity,
 )
 
 
@@ -36,7 +36,7 @@ from metrics.evaluate_submission import (  # noqa: E402
 _PRODUCTS = ["P0", "P1", "P2"]          # 3 products
 _STORES = ["S0", "S1"]                   # 2 stores
 _ALL_WEEKS = [1, 2, 3, 4]                # a few weeks
-_EVAL_WEEKS = [3, 4]                     # held-out tail (Layer 1 truth)
+_EVAL_WEEKS = [3, 4]                     # held-out tail (sales forecasting truth)
 _SWEEP_PCT = 0.10                        # ±10% own-price move (both signs)
 _BASELINE_PRICE = 2.00
 _BASELINE_UNITS = 100.0
@@ -52,7 +52,7 @@ def _cfg() -> dict:
 
 
 def _transactions_full() -> pd.DataFrame:
-    """A tiny observed panel with the columns Layer 1 truth reads (units, dollars)."""
+    """A tiny observed panel with the columns sales forecasting truth reads (units, dollars)."""
     rows = []
     for product_id, store_id, week in itertools.product(_PRODUCTS, _STORES, _ALL_WEEKS):
         units = _BASELINE_UNITS
@@ -113,7 +113,7 @@ def _make_fixture_cell() -> dict:
 # ---------------------------------------------------------------------------
 
 
-def _coherent_layer4_deltas(cell: dict, *, flip_focal: str | None = None) -> pd.DataFrame:
+def _coherent_validity_deltas(cell: dict, *, flip_focal: str | None = None) -> pd.DataFrame:
     """Predicted-Δq for the L4 file, coherent per the law of demand.
 
     Per store-week the category shift ΔM = ΣΔq is engineered to ZERO (focal drop is redistributed exactly onto the competitors), so category-netting is a no-op and every competitor residual points the demanded way → all four checks ≈ 1.0.
@@ -156,10 +156,10 @@ def _coherent_layer4_deltas(cell: dict, *, flip_focal: str | None = None) -> pd.
     return pd.DataFrame(rows)
 
 
-def _coherent_layer1_predictions(cell: dict) -> pd.DataFrame:
-    """A perfect Layer-1 forecast (predicted == observed held-out units).
+def _coherent_forecast_predictions_frame(cell: dict) -> pd.DataFrame:
+    """A perfect sales forecasting forecast (predicted == observed held-out units).
 
-    Layer 1 runs unchanged on the actual arm; the test only needs a valid, scorable file — numeric accuracy is not asserted, only that a score block is produced.
+    sales forecasting runs unchanged on the actual arm; the test only needs a valid, scorable file — numeric accuracy is not asserted, only that a score block is produced.
     """
     truth = cell["transactions_full"]
     truth = truth[truth["week"].isin(set(_EVAL_WEEKS))]
@@ -174,15 +174,15 @@ def _coherent_layer1_predictions(cell: dict) -> pd.DataFrame:
 
 
 def _write_submission(
-    tmp_path: Path, cell: dict, *, flip_focal: str | None = None, with_layer1: bool = True
+    tmp_path: Path, cell: dict, *, flip_focal: str | None = None, with_forecast: bool = True
 ) -> Path:
     sub_dir = tmp_path / "submission"
     sub_dir.mkdir(exist_ok=True)
-    _coherent_layer4_deltas(cell, flip_focal=flip_focal).to_csv(
-        sub_dir / LAYER4_ACTUAL_FILE, index=False
+    _coherent_validity_deltas(cell, flip_focal=flip_focal).to_csv(
+        sub_dir / ACTUAL_VALIDITY_FILE, index=False
     )
-    if with_layer1:
-        _coherent_layer1_predictions(cell).to_csv(sub_dir / LAYER1_ACTUAL_FILE, index=False)
+    if with_forecast:
+        _coherent_forecast_predictions_frame(cell).to_csv(sub_dir / ACTUAL_FORECAST_FILE, index=False)
     return sub_dir
 
 
@@ -241,41 +241,41 @@ def test_load_actual_cell_missing_data_raises():
 
 
 # ===========================================================================
-# score_layer4 returns all four live checks
+# score_validity returns all four live checks
 # ===========================================================================
 
 
-def test_score_layer4_all_checks_coherent():
+def test_score_validity_all_checks_coherent():
     cell = _make_fixture_cell()
-    # score_layer4 reads only the L4 file; write it into a tmp dir.
+    # score_validity reads only the L4 file; write it into a tmp dir.
     import tempfile
 
     with tempfile.TemporaryDirectory() as td:
-        sub_dir = _write_submission(Path(td), cell, with_layer1=False)
-        scores = score_layer4(cell, sub_dir / LAYER4_ACTUAL_FILE)
+        sub_dir = _write_submission(Path(td), cell, with_forecast=False)
+        scores = score_validity(cell, sub_dir / ACTUAL_VALIDITY_FILE)
 
-    # all four Layer-4 blocks present (assert on the returned dict only).
+    # all four validity checks blocks present (assert on the returned dict only).
     for block in ("own_price_sign", "substitution_sign", "own_elasticity_range", "monotonicity"):
-        assert block in scores, f"score_layer4 missing block {block!r}"
+        assert block in scores, f"score_validity missing block {block!r}"
 
     # The three checks that score on the actual-arm sweep are coherent ≈ 1.0.
     assert scores["own_price_sign"]["frac_correct_sign"] == pytest.approx(1.0)
     assert scores["own_elasticity_range"]["frac_in_band"] == pytest.approx(1.0)
     assert scores["monotonicity"]["frac_consistent"] == pytest.approx(1.0)
 
-    # Substitution-sign is structurally None on the actual arm: `score_layer4` merges the submitted Δq onto `sweep_context`, whose rows enumerate only the focal product per intervention — no competitor rows enter the frame, so the redistribution mass is 0 and `substitution_sign_validity` returns None. The block is present and wired; it simply has no competitor mass to score here.
+    # Substitution-sign is structurally None on the actual arm: `score_validity` merges the submitted Δq onto `sweep_context`, whose rows enumerate only the focal product per intervention — no competitor rows enter the frame, so the redistribution mass is 0 and `substitution_sign_validity` returns None. The block is present and wired; it simply has no competitor mass to score here.
     assert scores["substitution_sign"]["frac_redistribution_mass_correct"] is None
 
 
-def test_score_layer4_checks_are_live_under_perturbation():
+def test_score_validity_checks_are_live_under_perturbation():
     """Flipping one focal's predicted Δq under its hike must drop the relevant
     fraction below 1.0 — proving the checks are wired, not stubbed."""
     cell = _make_fixture_cell()
     import tempfile
 
     with tempfile.TemporaryDirectory() as td:
-        sub_dir = _write_submission(Path(td), cell, flip_focal="P0", with_layer1=False)
-        scores = score_layer4(cell, sub_dir / LAYER4_ACTUAL_FILE)
+        sub_dir = _write_submission(Path(td), cell, flip_focal="P0", with_forecast=False)
+        scores = score_validity(cell, sub_dir / ACTUAL_VALIDITY_FILE)
 
     # The flip makes P0's focal Δq POSITIVE under a hike (wrong sign) → own-price sign fraction drops, and the ± monotonicity pair no longer flips.
     assert scores["own_price_sign"]["frac_correct_sign"] < 1.0
@@ -292,9 +292,9 @@ def test_derived_elasticity_band_diagonal_no_elasticity_file():
     import tempfile
 
     with tempfile.TemporaryDirectory() as td:
-        sub_dir = _write_submission(Path(td), cell, with_layer1=False)
-        deltas = pd.read_csv(sub_dir / LAYER4_ACTUAL_FILE)
-        scores = score_layer4(cell, sub_dir / LAYER4_ACTUAL_FILE)
+        sub_dir = _write_submission(Path(td), cell, with_forecast=False)
+        deltas = pd.read_csv(sub_dir / ACTUAL_VALIDITY_FILE)
+        scores = score_validity(cell, sub_dir / ACTUAL_VALIDITY_FILE)
 
     # full own-price sweep covers ALL products (each moved once) → n_products == J.
     assert scores["own_elasticity_range"]["n_products"] == len(_PRODUCTS)
@@ -329,23 +329,23 @@ def test_derived_elasticity_band_diagonal_no_elasticity_file():
 
 def test_arm_routing_evaluate_prebuilt(tmp_path):
     cell = _make_fixture_cell()
-    sub_dir = _write_submission(tmp_path, cell, with_layer1=True)
+    sub_dir = _write_submission(tmp_path, cell, with_forecast=True)
 
     result = evaluate_prebuilt(cell, sub_dir, "fixture-actual-submission")
 
-    # Layer 1 is scored on the actual arm — assert a score block, not a value.
-    l1 = result["layer1_demand_prediction"]
+    # sales forecasting is scored on the actual arm — assert a score block, not a value.
+    l1 = result["sales_forecasting"]
     assert l1.get("status") not in ("not_submitted", "invalid_format"), l1
     assert "demand_wmape" in l1
 
-    # Layer 4 is scored.
-    l4 = result["layer4_validity_actual"]
+    # validity checks is scored.
+    l4 = result["validity_checks_actual"]
     assert l4.get("status") not in ("not_submitted", "invalid_format"), l4
     assert l4["own_price_sign"]["frac_correct_sign"] == pytest.approx(1.0)
 
-    # Truth-requiring layers are not applicable on real data.
-    assert result["layer2_elasticity_estimation"] == {"status": "not_applicable_actual_data"}
-    assert result["layer3_counterfactual"] == {"status": "not_applicable_actual_data"}
+    # Truth-requiring tasks are not applicable on real data.
+    assert result["elasticity_recovery"] == {"status": "not_applicable_actual_data"}
+    assert result["counterfactual_prediction"] == {"status": "not_applicable_actual_data"}
 
     # top-level arm marker.
     assert result["data_arm"] == "actual"
@@ -363,7 +363,7 @@ def test_leaderboard_actual_columns_per_arm(tmp_path):
         pytest.xfail("leaderboard_rows missing from metrics.leaderboard")
 
     cell = _make_fixture_cell()
-    sub_dir = _write_submission(tmp_path, cell, with_layer1=True)
+    sub_dir = _write_submission(tmp_path, cell, with_forecast=True)
     actual_scores = evaluate_prebuilt(cell, sub_dir, "actual-sub")
 
     # A minimal synthetic score payload (no data_arm tag → defaults to synthetic; its actual columns must come back None).
@@ -371,13 +371,13 @@ def test_leaderboard_actual_columns_per_arm(tmp_path):
         "submission_name": "synthetic-sub",
         "cell_slug": "complex_probit_endo_on_seed1",
         "family": "covariance_probit",
-        "layer3_counterfactual": {
+        "counterfactual_prediction": {
             "headline": {
                 "own_price": {"own_price_wmpe": 0.05},
                 "substitution": {"substitution_wape": 0.30, "n_store_weeks_scored": 10},
             }
         },
-        "layer1_demand_prediction": {"demand_wmape": 0.12, "demand_wmpe": -0.01},
+        "sales_forecasting": {"demand_wmape": 0.12, "demand_wmpe": -0.01},
     }
 
     frame = leaderboard_rows([actual_scores, synthetic_scores])
@@ -385,11 +385,11 @@ def test_leaderboard_actual_columns_per_arm(tmp_path):
     # actual-arm diagnostic columns must exist on the surface.
     for col in (
         "data_arm",
-        "layer4_own_sign_frac",
-        "layer4_substitution_frac",
-        "layer4_range_in_band",
-        "layer4_monotonicity_frac",
-        "layer1_actual_wmape",
+        "validity_own_sign_frac",
+        "validity_substitution_frac",
+        "validity_range_in_band",
+        "validity_monotonicity_frac",
+        "actual_forecast_error",
     ):
         assert col in frame.columns, f"leaderboard missing actual column {col!r}"
 
@@ -399,10 +399,10 @@ def test_leaderboard_actual_columns_per_arm(tmp_path):
     assert len(synth_row) == 1
 
     # actual row carries the diagnostic panel; synthetic row's actual columns None.
-    assert actual_row["layer4_own_sign_frac"].iloc[0] == pytest.approx(1.0)
-    assert actual_row["layer1_actual_wmape"].iloc[0] is not None
-    assert pd.isna(synth_row["layer4_own_sign_frac"].iloc[0])
-    assert pd.isna(synth_row["layer1_actual_wmape"].iloc[0])
+    assert actual_row["validity_own_sign_frac"].iloc[0] == pytest.approx(1.0)
+    assert actual_row["actual_forecast_error"].iloc[0] is not None
+    assert pd.isna(synth_row["validity_own_sign_frac"].iloc[0])
+    assert pd.isna(synth_row["actual_forecast_error"].iloc[0])
 
     # ranks restart within each data_arm (per-arm partition).
     assert int(actual_row["rank"].iloc[0]) == 1

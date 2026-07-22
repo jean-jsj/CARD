@@ -1,4 +1,4 @@
-"""Decomposed Layer-3 headline.
+"""Decomposed counterfactual prediction headline.
 
 The headline is a PAIR of magnitude-oriented L1 numbers scoring honest counterfactual accuracy (not structure recovery). Both are read from ONE +10% scenario (`sweep_single_share_highest_plus10`) and computed on the category-netted Δq, pooled across store-weeks as a single micro-average:
 

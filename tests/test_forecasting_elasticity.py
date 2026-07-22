@@ -1,4 +1,4 @@
-"""Unit tests for Layer 1 (demand WMAPE/WMPE) and Layer 2 (elasticity) metrics."""
+"""Unit tests for sales forecasting (demand WMAPE/WMPE) and elasticity recovery (elasticity) metrics."""
 
 from __future__ import annotations
 
@@ -6,19 +6,19 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from causal_demand_metrics.layer1_demand import (
+from causal_demand_metrics.sales_forecasting import (
     build_demand_truth,
     demand_prediction_scores,
     revenue_weights,
 )
-from causal_demand_metrics.layer2_elasticity import (
+from causal_demand_metrics.elasticity import (
     elasticity_scores,
     elasticity_truth_log_log,
 )
 
 
 # ---------------------------------------------------------------------------
-# Layer 1
+# sales forecasting
 # ---------------------------------------------------------------------------
 
 
@@ -79,7 +79,7 @@ def test_build_demand_truth_is_observed_holdout_units():
 
 
 # ---------------------------------------------------------------------------
-# Layer 2
+# elasticity recovery
 # ---------------------------------------------------------------------------
 
 
