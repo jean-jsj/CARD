@@ -4,8 +4,16 @@ title: "CARD: Causal Recovery of Demand"
 authors:
   - family-names: "Hong"
     given-names: "Juwon"
+  - family-names: "Hwang"
+    given-names: "Minha"
+  - family-names: "Shankar"
+    given-names: "Venkatesh"
 year: 2026
 url: "https://github.com/jean-jsj/CARD"
+identifiers:
+  - type: doi
+    value: "10.57967/hf/9681"
+    description: "Hugging Face dataset record"
 license: Apache-2.0
 # preferred-citation: the KDD 2027 Datasets & Benchmarks paper — added upon
 # publication.

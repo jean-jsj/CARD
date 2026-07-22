@@ -87,10 +87,12 @@ Code: **Apache-2.0** ([LICENSE](LICENSE)). Data: **CC BY 4.0** (declared on the 
 
 ```bibtex
 @misc{hong2026card,
-  author = {Hong, Juwon},
-  title  = {CARD: Causal Recovery of Demand},
-  year   = {2026},
-  url    = {https://github.com/jean-jsj/CARD}
+  author    = {Hong, Juwon and Hwang, Minha and Shankar, Venkatesh},
+  title     = {CARD: Causal Recovery of Demand},
+  year      = {2026},
+  doi       = {10.57967/hf/9681},
+  publisher = {Hugging Face},
+  url       = {https://huggingface.co/datasets/jean-jsj/CARD}
 }
 ```
 

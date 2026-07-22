@@ -10,7 +10,7 @@ promotions are endogenous. The benchmark pairs a synthetic retail transaction pa
 texts that carry the true substitution geometry, so it also measures whether a model extracts economic
 structure from text.
 
-**Who created it?** Juwon Hong, who also maintains it.
+**Who created it?** Juwon Hong, Minha Hwang, and Venkatesh Shankar; maintained by Juwon Hong.
 
 ## Composition
 
@@ -69,8 +69,9 @@ training production pricing systems.
 
 ## Distribution
 
-Data: Hugging Face [`jean-jsj/CARD`](https://huggingface.co/datasets/jean-jsj/CARD), CC BY 4.0. Evaluation
-and scoring code: [github.com/jean-jsj/CARD](https://github.com/jean-jsj/CARD), Apache-2.0.
+Data: Hugging Face [`jean-jsj/CARD`](https://huggingface.co/datasets/jean-jsj/CARD), CC BY 4.0, archived
+under DOI [10.57967/hf/9681](https://doi.org/10.57967/hf/9681). Evaluation and scoring code:
+[github.com/jean-jsj/CARD](https://github.com/jean-jsj/CARD), Apache-2.0.
 
 ## Maintenance
 
