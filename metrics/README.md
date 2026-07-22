@@ -18,7 +18,7 @@ Any task you omit scores `not_submitted`; a malformed file scores `invalid_forma
 
 ## What you get back
 
-- **Headline (counterfactual prediction):** two pooled numbers on the flagship +10% scenario, both category-netted and micro-averaged — **own-price bias** (signed WMPE) on the focal product's Δq, and **substitution error** (unsigned WAPE) on the competitor Δq. The leaderboard ranks by **|own-price bias| ascending** (closest-to-zero first); the substitution error rides alongside. Both are also reported per scenario across the full 16-scenario sweep.
+- **Headline (counterfactual prediction):** two pooled numbers on the flagship +10% scenario, both category-netted and micro-averaged — **own-price bias** (signed WMPE) on the focal product's Δq, and **substitution error** (unsigned WAPE) on the competitor Δq. The leaderboard ranks by **|own-price bias| ascending** (closest-to-zero first) within each demand family and displays the sales forecast error beside it (never ranked); the substitution error is reported, not ranked. Both are also reported per scenario across the full 16-scenario sweep.
 - **Additional outputs:** a forecasting + elasticity-recovery diagnostics CSV (which capability is missing) and the cell × 16-scenario counterfactual matrix (which scenarios hurt you).
 - **Actual-data arm:** sales forecasting (same forecast error/bias) plus the validity checks — label-free causal-coherence checks (own-price sign, substitution sign, own-elasticity band coverage, sign-flip monotonicity), each with a bootstrap CI. Elasticity recovery and counterfactual prediction are not scored on real data (no counterfactual truth exists there).
 

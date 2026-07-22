@@ -67,7 +67,7 @@ Entries are ranked by **|own-price bias|** in each family's endogeneity-on cell 
 
 **Metric names.** **Own-price bias** = signed weighted mean percentage error (WMPE) of the predicted demand change for the price-changed product, headline +10% scenario; 0 = unbiased, the sign shows over- vs under-shoot. **Sales forecast error** = revenue-weighted mean absolute percentage error (WMAPE) of predicted units over the 16 withheld weeks; lower is better. The **substitution error** (WAPE on competitor demand changes; 1.0 = predicting no change) and the full elasticity-recovery scorecard are reported per cell in `scores/` and in the diagnostics CSVs, not ranked here.
 
-The four reference models (instruments × text grid) are not leaderboard entries; their results are reported in the paper, their per-cell scores live in [`submissions/`](submissions/) (`reference_*`), and their predictions are hosted with the dataset (`reference/` on Hugging Face).
+The four reference models (instruments × text grid) are not leaderboard entries; their results are reported in the paper and browsable in [`docs/reference_results.html`](docs/reference_results.html) (open locally — an interactive explorer with a per-family toggle). Their per-cell scores live in [`submissions/`](submissions/) (`reference_*`), and their predictions are hosted with the dataset (`reference/` on Hugging Face).
 
 To submit an entry, see [CONTRIBUTING.md](CONTRIBUTING.md): score locally on the dev seed, then open a PR with your predictions; the maintainer scores the eval seeds and regenerates this leaderboard (`python scripts/make_leaderboard.py`).
 
