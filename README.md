@@ -4,23 +4,22 @@
 
 This benchmark pairs synthetic retail scanner panels with a multimodal product surface (marketing-copy product descriptions that carry the true substitution geometry). Demand is simulated from a known data-generating process; prices and promotions respond to hidden demand shocks in half the cells, so estimators that ignore endogeneity fit the observed data well and still get the counterfactuals wrong. True elasticities and counterfactual outcomes are hidden and used only for scoring.
 
-## The 8-cell grid
+## The 2×2 grid
 
 | Axis | Values |
 |---|---|
 | Demand family | **log-log** demand system (distance-disciplined cross-elasticities) / **structured random-coefficients discrete choice** (embedding-distance error covariance) |
 | Endogeneity | **off** (control) / **on** (promotion *depth* responds to a hidden demand shock; cost-based instruments stay valid) |
-| Market complexity | **simple** (3 products, 12 stores) / **complex** (40 products, 731 stores, embedding-based substitution geometry) |
 
-Panels cover **156 weeks** — 140 public training weeks plus 16 holdout-context weeks whose prices/promotions are public but whose sales are withheld. The two released instruments are `supply_cost_proxy` (primary) and `promo_cost` (secondary). Complex-cell products each carry a `product_text` description; simple cells ship the same schema with empty text. Store markets and brand codes are pseudonymized.
+Every cell is the full market: **40 products, 731 stores, 156 weeks** — 140 public training weeks plus 16 holdout-context weeks whose prices/promotions are public but whose sales are withheld. The two released instruments are `supply_cost_proxy` (primary) and `promo_cost` (secondary). Each product carries a `product_text` marketing-copy description (the substitution geometry's carrier). Store markets and brand codes are pseudonymized.
 
 ## Data
 
 The data are hosted on Hugging Face: [`jean-jsj/CARD`](https://huggingface.co/datasets/jean-jsj/CARD).
 
-Each cell directory contains:
+The four cells are `complex_{log_log,covariance_probit}_{exogenous,endogenous}_seed001` (the `complex_` prefix is part of the frozen cell identifiers). Each cell directory contains:
 
-- `public/` — everything your model may consume: `transactions_train_public.csv`, `transactions_holdout_context_public.csv`, `products_public.csv`, `stores_public.csv`, and `counterfactual_sweep_context_public.csv` (the 14 scored interventions). Markets and brand codes are pseudonymized.
+- `public/` — everything your model may consume: `transactions_train_public.csv`, `transactions_holdout_context_public.csv`, `products_public.csv`, `stores_public.csv`, and `counterfactual_sweep_context_public.csv` (the 16 scored interventions). Markets and brand codes are pseudonymized.
 - `hidden/` — **dev seed only**: the scoring truth (holdout sales, elasticity matrix, counterfactual Δq). Exists so you can score locally and instantly. **Data-access rule: `hidden/` is never model input.**
 - `release/` — per-cell manifest (SHA-256 per file), release notes, datasheet.
 

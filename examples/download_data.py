@@ -14,8 +14,7 @@ from pathlib import Path
 REPO_ID = "jean-jsj/CARD"
 
 CELLS = [
-    f"{complexity}_{family}_{endo}_seed001"
-    for complexity in ("simple", "complex")
+    f"complex_{family}_{endo}_seed001"
     for family in ("log_log", "covariance_probit")
     for endo in ("exogenous", "endogenous")
 ]

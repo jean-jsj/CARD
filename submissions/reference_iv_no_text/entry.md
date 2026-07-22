@@ -7,8 +7,7 @@ instruments x with/without the product text). This corner uses the two released 
   discrete-choice system), fit from the `public/` files alone, with two-stage least squares in the price equation.
   The functional form is held correct by construction, so the grid isolates the
   value of each input rather than model misspecification.
-- **Data used.** `public/` files only. Text corners read `product_text`;
-  simple cells ship no text, so the text corners cover complex cells only.
+- **Data used.** `public/` files only. Text corners read `product_text`.
 - **Scores.** `scores/<cell>.json` — dev seed 1, scored with this repository's
   harness (`python -m metrics.evaluate_all`).
 - **Predictions.** Full submission-format CSVs are hosted with the dataset

@@ -132,7 +132,7 @@ def test_diagnostics_tables_flatten_scores():
     from metrics.diagnostics import build_tables
 
     scores = {
-        "cell_slug": "simple_log_log_endogenous_seed001",
+        "cell_slug": "complex_log_log_endogenous_seed001",
         "layer1_demand_prediction": {"demand_wmape": 0.2, "demand_wmpe": -0.05},
         "layer2_elasticity_estimation": {
             "own_price": {"sign_accuracy": 1.0, "wmape": 0.1, "rmse": 0.3, "wmpe": 0.05, "mean_signed_error": 0.02},

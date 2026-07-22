@@ -117,7 +117,7 @@ def _load_cell(cell_dir: Path) -> dict[str, Any]:
 
 def _truth_frames_by_intervention(cell_dir: Path) -> dict[str, pd.DataFrame]:
     frames: dict[str, pd.DataFrame] = {}
-    # Participant scoring covers the 14 protocol interventions only. The two extra gate interventions (bundled top-N, single rank-1) are DGP construction fixtures — they stay out of the participant surface.
+    # Scores every intervention in the released sweep truth (the 16 protocol interventions of the public sweep context).
     path = cell_dir / "hidden" / "counterfactual_sweep_truth_hidden.csv"
     if path.exists():
         frame = pd.read_csv(path)

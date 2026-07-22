@@ -44,16 +44,16 @@ def test_discover_cells_accepts_released_cells(tmp_path: Path) -> None:
 
 
 def test_discover_cells_requires_run_config_and_filters(tmp_path: Path) -> None:
-    _make_cell(tmp_path, "simple_log_log_exogenous_seed001")
+    _make_cell(tmp_path, "complex_log_log_exogenous_seed001")
     _make_cell(tmp_path, "complex_log_log_endogenous_seed001")
     (tmp_path / "not_a_cell").mkdir()  # no reports/run_config_resolved.json
 
     found = discover_cells(tmp_path, None)
     assert [c.name for c in found] == [
         "complex_log_log_endogenous_seed001",
-        "simple_log_log_exogenous_seed001",
+        "complex_log_log_exogenous_seed001",
     ]
-    filtered = discover_cells(tmp_path, ["complex_*"])
+    filtered = discover_cells(tmp_path, ["*_endogenous*"])
     assert [c.name for c in filtered] == ["complex_log_log_endogenous_seed001"]
 
 

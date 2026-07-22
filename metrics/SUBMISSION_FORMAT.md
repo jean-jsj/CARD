@@ -35,7 +35,7 @@ Missing matrix entries are scored as 0.0 (the no-information value) and counted 
 
 ## `layer3_counterfactual_deltas.csv` — counterfactual demand response (headline)
 
-One row per (intervention, product, store, week) over the 14 sweep interventions published in `public/counterfactual_sweep_context_public.csv`. (Only the sweep interventions are scored. The two additional contexts (`counterfactual_context_public.csv`, `counterfactual_context_single_product_public.csv`) are DGP-construction fixtures — rows submitted for them are ignored by the scorer.)
+One row per (intervention, product, store, week) over the 16 sweep interventions published in `public/counterfactual_sweep_context_public.csv`.
 
 | column | type | meaning |
 |---|---|---|
@@ -54,7 +54,7 @@ Submit the **signed demand change**, computed from your own model's baseline and
 
 Both numbers are **micro-averaged**: numerators and denominators are pooled across all store-weeks and divided once — no per-store-week ratio-then-average, no renormalization, no cosine, no similarity kernel.
 
-The leaderboard ranks by **|own-price WMPE| ascending** (closest-to-zero bias first; the column stays signed for direction); the substitution WAPE rides alongside. Both numbers are still reported for all 14 sweep interventions (the per-intervention matrix).
+The leaderboard ranks by **|own-price WMPE| ascending** (closest-to-zero bias first; the column stays signed for direction); the substitution WAPE rides alongside. Both numbers are still reported for all 16 sweep interventions (the per-intervention matrix).
 
 ## The actual-data arm
 

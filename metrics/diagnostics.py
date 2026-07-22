@@ -1,11 +1,11 @@
 """Participant insight CSVs: where did my model go wrong?
 
-Flattens a set of `evaluate_submission` scores.json files (one per cell — typically the dev seed's 8 cells) into two spreadsheet-friendly tables:
+Flattens a set of `evaluate_submission` scores.json files (one per cell — typically the dev seed's 4 cells) into two spreadsheet-friendly tables:
 
 1. **L1/L2 diagnostics** (`--out`): rows = cells, columns = the Layer-1
    demand-prediction metrics and the full Layer-2 elasticity scorecard (own-price block; cross-price NDCG, per-class F1, magnitude/bias for all pairs and per true relationship class). Reading a row says which world hurts the model; reading a column says which capability is missing.
 2. **L3 intervention matrix** (`--layer3-out`): rows = cells, columns = the
-   14 protocol interventions, values = the substitution WAPE. The headline scenario is one of these columns; the rest are the robustness surface (e.g. good on single-product moves but collapsing on brand portfolios = weak substitution structure).
+   16 protocol interventions, values = the substitution WAPE. The headline scenario is one of these columns; the rest are the robustness surface (e.g. good on single-product moves but collapsing on brand portfolios = weak substitution structure).
 
 Neither file feeds the leaderboard.
 
