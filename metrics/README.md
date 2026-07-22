@@ -18,9 +18,9 @@ Any layer you omit scores `not_submitted`; a malformed file scores `invalid_form
 
 ## What you get back
 
-- **Headline (Layer 3):** two pooled numbers on the flagship +10% scenario, both category-netted and micro-averaged — **own-price response (signed WMPE)** on the focal product's Δq, and **substitution (unsigned WAPE)** on the competitor Δq. The leaderboard ranks by **|own-price WMPE| ascending** (closest-to-zero identification bias first); the substitution WAPE rides alongside. Both are also reported per intervention across the full 14-intervention sweep.
-- **Additional outputs:** an L1/L2 diagnostics CSV (which capability is missing) and the L3 cell × 14-intervention matrix (which scenarios hurt you).
-- **Actual-data arm:** Layer 1 (same WMAPE/WMPE) plus Layer 4 — label-free causal-coherence checks (own-price sign, substitution sign, own-elasticity band coverage, sign-flip monotonicity), each with a bootstrap CI. Layers 2–3 are not scored on real data (no counterfactual truth exists there).
+- **Headline (counterfactual prediction):** two pooled numbers on the flagship +10% scenario, both category-netted and micro-averaged — **own-price bias** (signed WMPE) on the focal product's Δq, and **substitution error** (unsigned WAPE) on the competitor Δq. The leaderboard ranks by **|own-price bias| ascending** (closest-to-zero first); the substitution error rides alongside. Both are also reported per scenario across the full 16-scenario sweep.
+- **Additional outputs:** a forecasting + elasticity-recovery diagnostics CSV (which capability is missing) and the cell × 16-scenario counterfactual matrix (which scenarios hurt you).
+- **Actual-data arm:** sales forecasting (same forecast error/bias) plus the validity checks — label-free causal-coherence checks (own-price sign, substitution sign, own-elasticity band coverage, sign-flip monotonicity), each with a bootstrap CI. Elasticity recovery and counterfactual prediction are not scored on real data (no counterfactual truth exists there).
 
 ## Release model (dev / eval split)
 

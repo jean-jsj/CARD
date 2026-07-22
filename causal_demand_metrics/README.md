@@ -4,11 +4,11 @@
 
 ## What it scores (four layers)
 
-**Layer 1 — demand forecasting.** Accuracy of held-out observed-sales forecasts, revenue-weighted across products:
+**Sales forecasting.** Accuracy of held-out observed-sales forecasts, revenue-weighted across products:
 - **Demand-WMAPE**
 - **Demand-WMPE**
 
-**Layer 2 — elasticity recovery.** How well the estimated own/cross price-elasticity matrix matches the truth:
+**Elasticity recovery.** How well the estimated own/cross price-elasticity matrix matches the truth:
 - **own-price sign accuracy**
 - **own-price WMAPE / WMPE**
 - **cross-price NDCG**
@@ -17,18 +17,18 @@
 
 Magnitudes are scored against the **total** elasticity; the substitute/complement/unrelated labels are assigned on the **switching-only** part, so a category-wide change can't masquerade as substitution.
 
-**Layer 4 — validity (no ground truth).** Causal-coherence sanity checks that read only the submission plus public price moves, so they score on **real POS** data with no hidden truth. Each rate carries a **bootstrap CI**:
+**Validity checks (no ground truth).** Causal-coherence sanity checks that read only the submission plus public price moves, so they score on **real POS** data with no hidden truth. Each rate carries a **bootstrap CI**:
 - **own-price sign** — fraction of focal store-weeks where price↑⇒units↓ (↓⇒↑)
 - **substitution sign** — competitor redistribution flowing the right way under a hike, reported both **|Δq|-weighted** and **unweighted per-competitor** (a big correct competitor can't hide many small wrong ones), category margin netted out; a per-product **complements** set flips the expected sign
 - **own-elasticity range coverage** — fraction of own elasticities in a plausible reference band (sign-correct, not extreme). Defaults grounded in CPG elasticity meta-analyses (Tellis 1988; Bijmolt, van Heerde & Pieters 2005) and store-level scanner estimates (Hoch et al. 1995); `FACIAL_TISSUE_OWN_BAND` pins the category
 - **cross-elasticity plausibility** — off-diagonal magnitude sanity: fraction extreme, and fraction whose |cross| exceeds the priced product's own |ε|
 - **monotonicity** — focal response flips across a paired +x% / −x% sweep
 
-`coherence_gate` folds these into a **PASS / WARN / FAIL** verdict — Layer 4 is a validity *gate*, not a ranker; a model can pass every gate and still be wrong on magnitudes.
+`coherence_gate` folds these into a **PASS / WARN / FAIL** verdict — the validity checks are a *gate*, not a ranker; a model can pass every gate and still be wrong on magnitudes.
 
-**Layer 3 — counterfactual recovery (the headline).** A PAIR of numbers from ONE scenario (`sweep_single_share_highest_plus10`, the flagship +X% hike) — **own-price = signed WMPE** and **substitution = unsigned WAPE**, both on the category-netted Δq. See *The Layer-3 headline* below for what each measures.
+**Counterfactual prediction (the headline).** A PAIR of numbers from ONE scenario (`sweep_single_share_highest_plus10`, the flagship +X% hike) — **own-price bias** (signed WMPE) and **substitution error** (unsigned WAPE), both on the category-netted Δq. See *The counterfactual headline* below for what each measures.
 
-## The Layer-3 headline
+## The counterfactual headline
 
 Raising one product's price produces a vector of demand changes across the whole category — the product's own drop, plus the gains spread over its competitors. The headline reads **two separate numbers** off the SAME submitted Δq̂, both from the single scenario `sweep_single_share_highest_plus10`, each on the category-netted residual (each side netted by its own category shift `Δq − ΔM·share`, `ΔM = Σ Δq`, so a category-wide magnitude move can't masquerade as substitution):
 
@@ -41,12 +41,12 @@ Both numbers are micro-averaged: numerators and denominators are pooled across a
 
 | Layer | Synthetic arm | Actual arm |
 |---|---|---|
-| Layer 1 (demand forecast) | ✓ scored | ✓ scored |
-| Layer 2 (elasticity) | ✓ scored | — (no ground truth) |
-| Layer 3 (counterfactual headline) | ✓ scored (ranked) | — (no ground truth) |
-| Layer 4 (validity, label-free) | — (actual-arm layer) | ✓ scored |
+| Sales forecasting | ✓ scored | ✓ scored |
+| Elasticity recovery | ✓ scored | — (no ground truth) |
+| Counterfactual prediction (headline) | ✓ scored (ranked) | — (no ground truth) |
+| Validity checks (label-free) | — (actual-arm task) | ✓ scored |
 
-The actual-data results are a **DIAGNOSTIC PANEL**, reported in their own `(cell_type, data_arm)` leaderboard partition — they are NOT ranked into the synthetic own-price-WMPE headline and are NOT a headline number. Layer 4 is **label-free** (real-data causal-coherence, no hidden truth): it is the sole actual-arm scoring layer, while Layer 1 runs on both arms.
+The actual-data results are a **DIAGNOSTIC PANEL**, reported in their own `(cell_type, data_arm)` leaderboard partition — they are NOT ranked into the synthetic own-price-bias headline and are NOT a headline number. The validity checks are **label-free** (real-data causal-coherence, no hidden truth): they are the sole actual-arm scoring task, while sales forecasting runs on both arms.
 
 ## Module map
 
@@ -54,7 +54,7 @@ The actual-data results are a **DIAGNOSTIC PANEL**, reported in their own `(cell
 |---|---|
 | `layer1_demand` | Revenue-weighted Demand-WMAPE / WMPE on observed holdout sales. |
 | `layer2_elasticity` | J×J elasticity matrix (sign / class-F1 / NDCG / magnitude); closed-form log-log truth. |
-| `headline_decomposition` | The Layer-3 headline (signed own-price WMPE + unsigned competitor-Δq WAPE, both category-netted, pooled). |
+| `headline_decomposition` | The counterfactual headline (own-price bias, signed WMPE, + substitution error, unsigned competitor-Δq WAPE, both category-netted, pooled). |
 | `layer4_validity` | Label-free causal-coherence checks with bootstrap CIs: own-price sign, substitution sign (weighted + unweighted, complement-aware), own/cross elasticity plausibility, ± sweep monotonicity, PASS/WARN/FAIL gate. **No hidden truth — scores on real POS.** |
 
 ## Design constraints

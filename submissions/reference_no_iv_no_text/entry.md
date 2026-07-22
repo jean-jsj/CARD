@@ -11,6 +11,6 @@ instruments x with/without the product text). This corner uses neither the relea
 - **Scores.** `scores/<cell>.json` — dev seed 1, scored with this repository's
   harness (`python -m metrics.evaluate_all`).
 - **Predictions.** Full submission-format CSVs are hosted with the dataset
-  (Hugging Face `jean-jsj/CARD`, `reference/no_iv_no_text/`) — the per-cell Layer-3
-  files are too large for a git repository.
+  (Hugging Face `jean-jsj/CARD`, `reference/no_iv_no_text/`) — the per-cell counterfactual
+  prediction files are too large for a git repository.
 - **Contact.** Maintainer (see `CITATION.cff`).

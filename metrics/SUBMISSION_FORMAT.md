@@ -1,12 +1,12 @@
 # Prediction-file format
 
-A scored model is a directory containing up to three CSV files — one per metric layer. A layer whose file is absent is reported as `not_submitted`; present layers are scored independently. Files are scored against ONE benchmark cell (one `<complexity>_<family>_<endogeneity>_seed<NNN>/` directory); produce one directory per cell you score.
+A scored model is a directory containing up to three CSV files — one per scored task. A task whose file is absent is reported as `not_submitted`; present tasks are scored independently. Files are scored against ONE benchmark cell (one `<complexity>_<family>_<endogeneity>_seed<NNN>/` directory); produce one directory per cell you score.
 
 Scoring is local and instant on the released dev seed(s), whose `hidden/` truth ships with the benchmark. The eval seeds ship without truth; their leaderboard numbers are maintainer-computed (see metrics/README.md).
 
 **Data-access rule:** your model may consume the cell's `public/` files only. `hidden/` exists for scoring, never as model input. The evaluation window is the last `counterfactual_eval_weeks` weeks of the transaction panel (16 in the released config) — the same window the counterfactual contexts cover.
 
-## `layer1_demand_predictions.csv` — demand prediction
+## `layer1_demand_predictions.csv` — sales forecasting
 
 A genuine forecasting holdout: the public transactions file covers the training window only; the holdout weeks' prices and promo flags ship as `public/transactions_holdout_context_public.csv` (your conditional-forecasting inputs), and their realized sales are withheld. One row per (product, store, week) of the holdout window:
 
@@ -17,9 +17,9 @@ A genuine forecasting holdout: the public transactions file covers the training 
 | `week` | int | holdout-window week (as in the holdout context file) |
 | `predicted_units` | float | predicted unit sales under the observed pricing policy |
 
-Scored with revenue-weighted Demand-WMAPE (accuracy) and Demand-WMPE (bias) against the **observed holdout sales** (conventional M5-style target; the observation noise floor is shared by all models). Revenue weights w_i come from the public training window, so they are participant-reproducible. Missing (product, store, week) rows are reported and flag the submission incomplete; only covered rows are scored.
+Scored with the **forecast error** (revenue-weighted WMAPE) and **forecast bias** (signed WMPE) against the **observed holdout sales** (conventional M5-style target; the observation noise floor is shared by all models). Revenue weights w_i come from the public training window, so they are participant-reproducible. Missing (product, store, week) rows are reported and flag the submission incomplete; only covered rows are scored.
 
-## `layer2_elasticities.csv` — elasticity estimation
+## `layer2_elasticities.csv` — elasticity recovery
 
 One row per ordered product pair (the full J×J matrix, diagonal included):
 
@@ -49,18 +49,18 @@ Submit the **signed demand change**, computed from your own model's baseline and
 
 **Scoring — the decomposed headline.** A single score over the whole Δq vector would be dominated by the focal product's own response, leaving it blind to both own-magnitude bias and substitution distortion — so the headline is a PAIR of numbers read off ONE scenario (`sweep_single_share_highest_plus10`, the flagship +X% hike), both from the *same* submitted Δq̂. Both sides are first **category-netted** (each netted by its own category shift `Δq − ΔM·share`, `ΔM = Σ Δq`) so a category-wide magnitude move can't masquerade as substitution:
 
-1. **own-price reaction — signed WMPE** on the netted FOCAL Δq (the product whose price moved): `Σ(Δq̂_f − Δq*_f) / Σ|Δq*_f|`, pooled over the store-weeks where the focal is present. This is the identification/bias axis — 0 = unbiased; the sign shows over- vs under-shoot.
-2. **substitution — unsigned WAPE** on the netted COMPETITOR (all non-focal) Δq, pooled over all store-weeks, on raw mass and **geometry-blind** (no `d_total` closeness weighting): `Σ_{k≠f}|Δq̂_k − Δq*_k| / Σ_{k≠f}|Δq*_k|`. Lower = closer to the true competitor redistribution; a no-change prediction scores the full mass.
+1. **own-price bias (signed WMPE)** on the netted FOCAL Δq (the product whose price moved): `Σ(Δq̂_f − Δq*_f) / Σ|Δq*_f|`, pooled over the store-weeks where the focal is present. This is the identification/bias axis — 0 = unbiased; the sign shows over- vs under-shoot.
+2. **substitution error (unsigned WAPE)** on the netted COMPETITOR (all non-focal) Δq, pooled over all store-weeks, on raw mass and **geometry-blind** (no `d_total` closeness weighting): `Σ_{k≠f}|Δq̂_k − Δq*_k| / Σ_{k≠f}|Δq*_k|`. Lower = closer to the true competitor redistribution; a no-change prediction scores the full mass.
 
 Both numbers are **micro-averaged**: numerators and denominators are pooled across all store-weeks and divided once — no per-store-week ratio-then-average, no renormalization, no cosine, no similarity kernel.
 
-The leaderboard ranks by **|own-price WMPE| ascending** (closest-to-zero bias first; the column stays signed for direction); the substitution WAPE rides alongside. Both numbers are still reported for all 16 sweep interventions (the per-intervention matrix).
+The leaderboard ranks by **|own-price bias| ascending** (closest to zero first; the column stays signed for direction); the substitution error is reported alongside, not ranked. Both numbers are still reported for all 16 sweep interventions (the per-intervention matrix).
 
 ## The actual-data arm
 
-The submission files above are the **synthetic arm** (Layers 1–3, scored against hidden counterfactual truth). The benchmark also runs an **actual-data arm** on a real point-of-sale panel, which scores **Layer 1** (demand forecast) and **Layer 4** (label-free causal-coherence validity) ONLY. Real data has no hidden counterfactual truth, so **Layers 2 and 3 are NOT scored on the actual arm** — they report `not_applicable_actual_data`. To enter the actual arm, submit the two files below.
+The submission files above are the **synthetic arm** (sales forecasting, elasticity recovery, and counterfactual prediction, scored against hidden truth). The benchmark also runs an **actual-data arm** on a real point-of-sale panel, which scores **sales forecasting** and the **validity checks** (label-free causal coherence) ONLY. Real data has no hidden counterfactual truth, so **elasticity recovery and counterfactual prediction are NOT scored on the actual arm** — they report `not_applicable_actual_data`. To enter the actual arm, submit the two files below.
 
-## `layer1_actual_predictions.csv` — demand prediction (actual-data arm)
+## `layer1_actual_predictions.csv` — sales forecasting (actual-data arm)
 
 Identical columns to `layer1_demand_predictions.csv` — one row per (product, store, week) — but forecasting the REAL held-out POS sales.
 
@@ -71,9 +71,9 @@ Identical columns to `layer1_demand_predictions.csv` — one row per (product, s
 | `week` | int | a held-out (eval) week on the real panel |
 | `predicted_units` | float | forecast units |
 
-Scored with the **SAME Demand-WMAPE / Demand-WMPE as synthetic Layer 1** (Layer 1 runs on BOTH arms), against the withheld observed real sales in the eval weeks.
+Scored with the **SAME forecast error / forecast bias as the synthetic arm** (sales forecasting runs on BOTH arms), against the withheld observed real sales in the eval weeks.
 
-## `layer4_actual_deltas.csv` — Layer-4 validity (actual-data arm)
+## `layer4_actual_deltas.csv` — validity checks (actual-data arm)
 
 Identical columns to `layer3_counterfactual_deltas.csv` — one row per (intervention, product, store, week) — carrying your predicted signed Δq̂ under the PUBLIC own-price sweep (every product moved once, in BOTH the + and − directions).
 
@@ -85,4 +85,4 @@ Identical columns to `layer3_counterfactual_deltas.csv` — one row per (interve
 | `week` | int | |
 | `predicted_delta_units` | float | signed Δq̂ under the own-price sweep |
 
-**NO elasticity file is required for Layer 4** — the own-elasticity band is DERIVED from the submitted Δq̂ (no separate `layer2`-style file on this arm). Layer 4 scores four label-free coherence checks (own-price sign, substitution sign, own-elasticity range coverage, sign-flip monotonicity) — none needs hidden truth. Again, **Layers 2–3 are not scored on the actual arm** (`not_applicable_actual_data`): only Layer 1 and Layer 4 run on real data.
+**NO elasticity file is required for the validity checks** — the own-elasticity band is DERIVED from the submitted Δq̂ (no separate elasticity file on this arm). The validity checks score four label-free coherence properties (own-price sign, substitution sign, own-elasticity range coverage, sign-flip monotonicity) — none needs hidden truth. Again, **elasticity recovery and counterfactual prediction are not scored on the actual arm** (`not_applicable_actual_data`): only sales forecasting and the validity checks run on real data.

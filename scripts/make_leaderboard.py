@@ -8,9 +8,9 @@ rewrites:
   the README.md block between the LEADERBOARD markers (dual-rank table)
 
 Ranking rule: within each demand family, entries are ranked by |own-price
-WMPE| in the endogeneity-on cell (ascending; 0 = unbiased). The two family
-columns rank independently; the same entry can hold different ranks. L1
-forecast WMAPE is reported alongside and never enters the rank.
+bias| in the endogeneity-on cell (ascending; 0 = unbiased). The two family
+columns rank independently; the same entry can hold different ranks. The
+sales forecast error is reported alongside and never enters the rank.
 
 Participant report mode: --report <model> writes <model>_report.html — the
 same two plots with every other entry in gray and <model> highlighted, plus
@@ -121,10 +121,10 @@ def scatter_svg(entries: dict, fam: str, fam_label: str, highlight: str | None) 
               f'stroke="{INK3}" stroke-width="1.5" stroke-dasharray="4 3"/>'
               f'<text x="{L + 4}" y="{Y(0) - 6:.1f}" font-size="10" fill="{INK2}">0 = unbiased</text>')
         s += (f'<text x="{(L + W - R) / 2}" y="{top + PH - 6}" font-size="11.5" '
-              f'text-anchor="middle" fill="{INK2}">L1 forecast WMAPE — lower = fits observed sales better</text>')
+              f'text-anchor="middle" fill="{INK2}">sales forecast error — lower = fits observed sales better</text>')
         s += (f'<text transform="rotate(-90 14 {top + (T + PH - B) / 2:.0f})" x="14" '
               f'y="{top + (T + PH - B) / 2:.0f}" font-size="11.5" text-anchor="middle" '
-              f'fill="{INK2}">|own-price WMPE| — 0 = unbiased</text>')
+              f'fill="{INK2}">|own-price bias| — 0 = unbiased</text>')
         for m in order:
             e = rows[m]
             if endo not in e:
@@ -152,13 +152,13 @@ def scatter_svg(entries: dict, fam: str, fam_label: str, highlight: str | None) 
 
 def rank_table(entries: dict, highlight: str | None) -> str:
     if not entries:
-        return "| Model | log-log own WMPE (rank) | L1 WMAPE | discrete-choice own WMPE (rank) | L1 WMAPE |\n|---|---|---|---|---|\n| *no verified entries yet* | | | | |"
+        return "| Model | log-log: own-price bias (rank) | forecast error | discrete-choice: own-price bias (rank) | forecast error |\n|---|---|---|---|---|\n| *no verified entries yet* | | | | |"
     ranks: dict[str, dict[str, int]] = {}
     for fam, _ in FAMILIES:
         scored = [(m, abs(e[fam]["on"]["own"])) for m, e in entries.items() if e.get(fam, {}).get("on")]
         for i, (m, _) in enumerate(sorted(scored, key=lambda t: t[1]), 1):
             ranks.setdefault(m, {})[fam] = i
-    lines = ["| Model | log-log own WMPE (rank) | L1 WMAPE | discrete-choice own WMPE (rank) | L1 WMAPE |",
+    lines = ["| Model | log-log: own-price bias (rank) | forecast error | discrete-choice: own-price bias (rank) | forecast error |",
              "|---|---|---|---|---|"]
     order = sorted(entries, key=lambda m: ranks.get(m, {}).get("log_log", 99))
     for m in order:
@@ -204,17 +204,23 @@ def write_report(entries: dict, model: str, out: Path) -> None:
 table{{border-collapse:collapse;width:100%;font-size:13px}}td,th{{border-bottom:1px solid #ddd;padding:6px 8px;text-align:left}}
 h1{{font-size:22px}}h2{{font-size:15px;margin-top:28px}}svg{{max-width:100%}}</style>
 <h1>CARD scoring report — {html.escape(model)}</h1>
-<p>Ranked by |own-price WMPE| in each family's endogeneity-on cell (0 = unbiased);
+<p>Ranked by |own-price bias| in each family's endogeneity-on cell (0 = unbiased);
 the endogeneity-off panel is the control. Your model is highlighted; all other
 entries are gray.</p>
+<p><b>Metric names.</b> <b>Own-price bias</b> is the signed weighted mean
+percentage error (WMPE) of the predicted demand change for the price-changed
+product under the headline +10% scenario; 0 means unbiased, the sign shows
+over- vs under-shoot. <b>Sales forecast error</b> is the revenue-weighted mean
+absolute percentage error (WMAPE) of predicted units over the 16 withheld
+weeks; lower is better.</p>
 {svgs}
 <h2>Ranking</h2>
-<table><tr><th>Model</th><th>log-log own WMPE (rank)</th><th>L1 WMAPE</th>
-<th>discrete-choice own WMPE (rank)</th><th>L1 WMAPE</th></tr>{html_rows}</table>
-<p>Every remaining metric, including the substitution WAPE, the full Layer-2
-elasticity scorecard, and the per-scenario Layer-3 matrix, is in the CSVs
-produced by <code>python -m metrics.diagnostics</code> over your scores.json
-files.</p>
+<table><tr><th>Model</th><th>log-log: own-price bias (rank)</th><th>forecast error</th>
+<th>discrete-choice: own-price bias (rank)</th><th>forecast error</th></tr>{html_rows}</table>
+<p>Every remaining metric, including the substitution error (WAPE), the full
+elasticity-recovery scorecard, and the per-scenario counterfactual matrix, is
+in the CSVs produced by <code>python -m metrics.diagnostics</code> over your
+scores.json files.</p>
 """)
 
 

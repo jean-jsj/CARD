@@ -40,30 +40,32 @@ python examples/quickstart.py --cell-dir benchmark/dev/complex_log_log_endogenou
 
 ## What is scored
 
-| Layer | Question | Metric |
+| Task | Question | Metrics |
 |---|---|---|
-| **1 — demand** | Do you forecast held-out sales? | revenue-weighted WMAPE / WMPE |
-| **2 — elasticities** | Do you recover the J×J price-response matrix? | sign accuracy, F1, NDCG, WMAPE/WMPE |
-| **3 — counterfactuals (headline)** | Do you predict Δq under a +10% price move? | signed **own-price WMPE** + unsigned **substitution WAPE** |
-| **4 — validity (actual arm)** | Are your real-data predictions causally coherent? | label-free sign/band/monotonicity checks |
+| **Sales forecasting** | Do you forecast held-out sales? | **forecast error** (revenue-weighted WMAPE, lower = better) and **forecast bias** (signed WMPE, 0 = best) |
+| **Elasticity recovery** | Do you recover the J×J price-response matrix? | **sign accuracy** and **substitute/complement F1** (higher = better), **cross-effect ranking** (NDCG, higher = better), **magnitude error** (WMAPE/RMSE, lower = better), **elasticity bias** (WMPE, 0 = best) |
+| **Counterfactual prediction** (headline) | Do you predict the demand change under a +10% price move? | **own-price bias** (signed WMPE, 0 = unbiased) and **substitution error** (WAPE; 1.0 = predicting no change, lower = better) |
+| **Validity checks** (actual arm) | Are your real-data predictions causally coherent? | label-free sign/band/monotonicity checks → PASS / WARN / FAIL |
 
-The headline is Layer 3, read off one flagship scenario: the leaderboard ranks by |own-price WMPE| (identification bias, 0 = unbiased), with substitution WAPE alongside (competitor-redistribution error; predicting "no change" scores the full mass). Both are category-netted so a category-wide shift can't masquerade as substitution. The interesting comparison is *endogeneity-on vs -off*: a purely predictive model can win Layer 1 and still fail Layer 3 in the endogeneity-on cells.
+The headline is counterfactual prediction, read off one flagship scenario: the leaderboard ranks by |own-price bias| (0 = unbiased), and the substitution error is reported alongside (competitor-redistribution error; predicting "no change" scores the full mass). Both are category-netted so a category-wide shift can't masquerade as substitution. The interesting comparison is *endogeneity-on vs -off*: a purely predictive model can win on forecast error and still carry a large own-price bias in the endogeneity-on cells.
 
-The benchmark also runs an **actual-data arm** (Layer 1 + Layer 4) on a real point-of-sale panel: the **Dominick's Finer Foods** scanner data published by the [Kilts Center for Marketing](https://www.chicagobooth.edu/research/kilts/research-data/dominicks) (Chicago Booth), **Bathroom Tissues** category — the closest real analog to the synthetic facial-tissue category. The data are free for academic research (attribution to the Kilts Center required) and are not redistributed here: download the category files from the Kilts Center and point `--actual-data-root` at them; the loader ([`metrics/actual_data.py`](metrics/actual_data.py)) is deterministic, so every participant reconstructs the identical panel. Real data has no counterfactual truth, so Layers 2–3 are synthetic-arm only — and because the Dominick's files are public, the actual-arm Layer 1 is an honor-system diagnostic rather than an adversarially-hidden target.
+The benchmark also runs an **actual-data arm** (sales forecasting + validity checks) on a real point-of-sale panel: the **Dominick's Finer Foods** scanner data published by the [Kilts Center for Marketing](https://www.chicagobooth.edu/research/kilts/research-data/dominicks) (Chicago Booth), **Bathroom Tissues** category — the closest real analog to the synthetic facial-tissue category. The data are free for academic research (attribution to the Kilts Center required) and are not redistributed here: download the category files from the Kilts Center and point `--actual-data-root` at them; the loader ([`metrics/actual_data.py`](metrics/actual_data.py)) is deterministic, so every participant reconstructs the identical panel. Real data has no counterfactual truth, so elasticity recovery and counterfactual prediction are synthetic-arm only — and because the Dominick's files are public, the actual-arm forecast is an honor-system diagnostic rather than an adversarially-hidden target.
 
 ## Leaderboard
 
-Entries are ranked by **|own-price WMPE|** in each family's endogeneity-on cell (0 = unbiased; the sign stays visible for direction). The two family columns rank independently — the same entry can hold different ranks in each. L1 forecast WMAPE is reported alongside and never enters the rank: the benchmark's point is that the two can diverge. The plots pair each arena cell with its endogeneity-off control.
+Entries are ranked by **|own-price bias|** in each family's endogeneity-on cell (0 = unbiased; the sign stays visible for direction). The two family columns rank independently — the same entry can hold different ranks in each. The sales forecast error is reported alongside and never enters the rank: the benchmark's point is that the two can diverge. The plots pair each arena cell with its endogeneity-off control.
 
 ![log-log leaderboard](leaderboard/leaderboard_log_log.svg)
 
 ![discrete-choice leaderboard](leaderboard/leaderboard_covariance_probit.svg)
 
 <!-- LEADERBOARD:START -->
-| Model | log-log own WMPE (rank) | L1 WMAPE | discrete-choice own WMPE (rank) | L1 WMAPE |
+| Model | log-log: own-price bias (rank) | forecast error | discrete-choice: own-price bias (rank) | forecast error |
 |---|---|---|---|---|
 | *no verified entries yet* | | | | |
 <!-- LEADERBOARD:END -->
+
+**Metric names.** **Own-price bias** = signed weighted mean percentage error (WMPE) of the predicted demand change for the price-changed product, headline +10% scenario; 0 = unbiased, the sign shows over- vs under-shoot. **Sales forecast error** = revenue-weighted mean absolute percentage error (WMAPE) of predicted units over the 16 withheld weeks; lower is better. The **substitution error** (WAPE on competitor demand changes; 1.0 = predicting no change) and the full elasticity-recovery scorecard are reported per cell in `scores/` and in the diagnostics CSVs, not ranked here.
 
 The four reference models (instruments × text grid) are not leaderboard entries; their results are reported in the paper, their per-cell scores live in [`submissions/`](submissions/) (`reference_*`), and their predictions are hosted with the dataset (`reference/` on Hugging Face).
 
