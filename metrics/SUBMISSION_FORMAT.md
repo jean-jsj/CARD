@@ -33,7 +33,7 @@ Compute ε̂ exactly as the spec defines it: perturb product j's price by +1% at
 
 Missing matrix entries are scored as 0.0 (the no-information value) and counted — a partial submission cannot shrink its own denominator.
 
-## `counterfactual_deltas.csv` — counterfactual demand response (headline)
+## `counterfactual_deltas.csv` — counterfactual demand response (carries the ranked headline metric)
 
 One row per (intervention, product, store, week) over the 16 sweep interventions published in `public/counterfactual_sweep_context_public.csv`.
 
