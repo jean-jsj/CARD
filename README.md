@@ -78,6 +78,8 @@ The DGP code and calibrated parameters are not published while the evaluation ph
 | [`causal_demand_metrics/`](causal_demand_metrics/README.md) | Scoring math (pip-installable; numpy + pandas only). |
 | [`metrics/`](metrics/README.md) | Scoring harness: `evaluate_submission`, `evaluate_all`, `leaderboard`, `diagnostics`. |
 | [`examples/`](examples/) | Data download + naive-baseline quickstart. |
+| [`submissions/`](submissions/) | Reference-model entries and scores; verified leaderboard entries land here by PR. |
+| [`DATASHEET.md`](DATASHEET.md) | Datasheet for the dataset (Gebru et al. format). |
 | `tests/` | Test suite (self-contained; no data download needed). |
 
 ## License & citation
