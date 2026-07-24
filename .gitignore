@@ -10,3 +10,5 @@ benchmark/
 scores/
 # quickstart-generated local baseline (real entries are committed deliberately)
 submissions/naive_baseline/
+# notebook-generated local outputs
+submissions_local/
