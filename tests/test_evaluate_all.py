@@ -1,4 +1,4 @@
-"""Unit tests for the metrics.evaluate_all multi-cell wrapper.
+"""Unit tests for the card_metrics.evaluate_all multi-cell wrapper.
 
 Discovery, slug-matching, eval-cell/missing-submission skips, and per-cell error isolation. Real-cell scoring goes through `evaluate` (tested against generated cells in the verification runs), so it is stubbed here.
 """
@@ -8,8 +8,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import metrics.evaluate_all as evaluate_all_module
-from metrics.evaluate_all import discover_cells, evaluate_all
+import card_metrics.evaluate_all as evaluate_all_module
+from card_metrics.evaluate_all import discover_cells, evaluate_all
 
 
 def _make_cell(root: Path, slug: str, with_truth: bool = True) -> Path:

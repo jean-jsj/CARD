@@ -8,7 +8,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from causal_demand_metrics.headline_decomposition import (
+from card_metrics.headline_decomposition import (
     decomposed_headline,
     focal_from_context,
 )

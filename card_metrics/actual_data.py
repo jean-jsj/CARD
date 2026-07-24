@@ -1,29 +1,10 @@
-"""Actual-data cell adapter — the Dominick's (Kilts Center) real-POS input.
+"""Load the actual-data arm: Dominick's (Kilts Center) Bathroom Tissues.
 
-The **actual-data arm** (sales forecasting + validity checks on real point-of-sale data). elasticity recovery and 3 need hidden counterfactual truth, so they stay synthetic-only; **sales forecasting** (forecast vs. observed sales) and **validity checks** (label-free coherence) are computable on REAL data.
-
-The real panel is the **Dominick's Finer Foods scanner dataset** published by the James M. Kilts Center for Marketing, University of Chicago Booth School of Business (https://www.chicagobooth.edu/research/kilts/research-data/dominicks): weekly store x UPC movement for ~100 Chicago-area stores, 1989-1997. The data are free for academic research (attribution to the Kilts Center required) and are NOT redistributed with this benchmark — download the category files from the Kilts Center and point ``data_root`` at them; this loader is deterministic, so every participant reconstructs the identical panel.
-
-Default category: **Bathroom Tissues** (``tti``) — the closest real analog to the synthetic facial-tissue category (storable paper product, heavy promotion, branded + private-label substitution).
-
-Expected files under ``data_root`` (the Kilts CSV export for one category):
-
-* ``wtti.csv`` — movement file: ``STORE, UPC, WEEK, MOVE, QTY, PRICE, SALE, PROFIT, OK`` (case-insensitive). ``MOVE`` is individual units sold; ``PRICE`` is the bundle price for ``QTY`` units, so unit price = ``PRICE/QTY`` and revenue = ``PRICE*MOVE/QTY``; ``SALE`` is the deal code (B/C/S, blank = no deal); ``PROFIT`` is the gross-margin %, so the wholesale-cost proxy = ``unit_price*(1-PROFIT/100)``; rows with ``OK == 0`` or non-positive price are dropped (standard Dominick's hygiene).
-* ``upctti.csv`` — optional UPC file (descriptions/sizes); used only to attach a product description when present.
-
-The panel is mapped onto the synthetic public-schema columns (``product_id, store_id, week, units, dollars, price, promo_flag, supply_cost_proxy``), the product universe is the smallest top-revenue UPC set covering ``UNIVERSE_REVENUE_SHARE`` of training-window revenue (mirroring the synthetic 80%-revenue SKU rule), and the train/held-out split is IDENTICAL to the synthetic cells (``eval_weeks`` = last ``holdout_weeks`` of the window).
-
-Because the Dominick's files are public, the actual-arm sales forecasting "withheld" sales are public too — actual-arm sales forecasting is an honor-system diagnostic, not an adversarially-hidden target (the synthetic arm carries the hidden-truth scoring).
-
-Verified against the real bathroom-tissue feed (weeks 1-399, 93 stores, 128 UPCs): the default cell is the most recent 156-week window (244-399; 142 observed weeks — the chain has four known whole-feed gap stretches), 35-UPC universe, ~312k rows, promo rate ~16%, median cost/price ~0.83. The week-coverage anchor and the price-outlier guard below exist because of two measured artifacts: end-of-feed thinning (not present in this category, but guarded) and one isolated 650x-median price recording error.
-
-Cell-dict contract mirrored from ``metrics.evaluate_submission._load_cell``::
-
-    {cfg, family, transactions_full, training, eval_weeks}
-
-plus ``data_arm = "actual"`` (this module is the sole author of that value) and ``sweep_context`` — the PUBLIC own-price sweep intervention table the participant's ``validity_actual`` predicted-dq file is scored against. No hidden truth of any kind is attached — validity checks is label-free.
-
-:func:`build_fixture_actual_cell` DERIVES a valid actual-arm cell from an existing synthetic dev cell (strips the hidden truth), so the actual-arm path can be exercised without the real data.
+Builds the real panel deterministically from the category files every
+participant downloads from the Kilts Center, so all participants reconstruct
+the identical cell (fixed 156-week window, 35-UPC universe, price-outlier
+guard). Real data has no counterfactual truth: only sales forecasting and the
+validity checks score on this arm.
 """
 
 from __future__ import annotations
@@ -283,8 +264,8 @@ def build_fixture_actual_cell(synthetic_cell_dir: Path) -> dict[str, Any]:
     dict
         Keys ``{cfg, family, transactions_full, training, eval_weeks, data_arm, sweep_context}`` with ``family == "actual"`` and ``data_arm == "actual"``. ``sweep_context`` is the full own-price sweep: one intervention per product, BOTH signs, anchored on the ``eval_weeks`` store-weeks, columns exactly :data:`SWEEP_CONTEXT_COLUMNS`. No elasticity file is produced or expected (own-elasticity band is derived from dq downstream). No hidden truth is attached — validity checks is label-free.
     """
-    # Import here (read-only) to avoid a hard module-load coupling and any import side effects at `import metrics.actual_data` time.
-    from metrics.evaluate_submission import _load_cell
+    # Import here (read-only) to avoid a hard module-load coupling and any import side effects at `import card_metrics.actual_data` time.
+    from card_metrics.evaluate_submission import _load_cell
 
     synthetic_cell_dir = Path(synthetic_cell_dir)
     cell = _load_cell(synthetic_cell_dir)

@@ -1,4 +1,4 @@
-"""Guard: `causal_demand_metrics` is pure — importable without the pipeline.
+"""Guard: `card_metrics` is pure — importable without the pipeline.
 
 The package is the single source of truth for the metric math and is distributed standalone (pip). It must never grow an import of `benchmark_pipeline`, which would drag the hidden DGP into the public distribution.
 """
@@ -16,10 +16,10 @@ def test_package_imports_without_benchmark_pipeline() -> None:
     """Importing the package must not load any benchmark_pipeline module."""
     code = (
         "import sys\n"
-        "import causal_demand_metrics\n"
+        "import card_metrics\n"
         "loaded = [m for m in sys.modules if m.startswith('benchmark_pipeline')]\n"
         "assert not loaded, f'package pulled in pipeline modules: {loaded}'\n"
-        "assert causal_demand_metrics.__version__\n"
+        "assert card_metrics.__version__\n"
         "print('ok')\n"
     )
     result = subprocess.run(
@@ -35,7 +35,7 @@ def test_package_imports_without_benchmark_pipeline() -> None:
 
 def test_package_sources_do_not_reference_pipeline() -> None:
     """No source file in the package may import benchmark_pipeline (even lazily)."""
-    package_dir = REPO_ROOT / "causal_demand_metrics"
+    package_dir = REPO_ROOT / "card_metrics"
     offenders = [
         path.name
         for path in package_dir.glob("*.py")

@@ -2,7 +2,7 @@
 
 Column-by-column reference for every file in a benchmark cell. The dataset
 lives on Hugging Face ([`jean-jsj/CARD`](https://huggingface.co/datasets/jean-jsj/CARD));
-fetch cells with [`examples/download_data.py`](../examples/download_data.py).
+fetch cells with `card download`.
 
 ## Layout
 
@@ -114,7 +114,7 @@ maintainer.
 scoring config the harness reads (model family, endogeneity, eval-window
 length); `DATASHEET.md` and `release_notes.md` document the cell. The
 withheld generator source is committed to by hash in
-[`GENERATOR_COMMITMENT.md`](../GENERATOR_COMMITMENT.md).
+[`GENERATOR_COMMITMENT.md`](GENERATOR_COMMITMENT.md).
 
 ## Conventions and gotchas
 

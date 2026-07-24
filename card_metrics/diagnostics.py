@@ -10,7 +10,7 @@ Flattens a set of `evaluate_submission` scores.json files (one per cell — typi
 Neither file feeds the leaderboard.
 
 Usage:
-    python3 -m metrics.diagnostics my_scores/*.json \
+    python3 -m card_metrics.diagnostics my_scores/*.json \
         --out diagnostics.csv --counterfactual-out interventions.csv
 """
 

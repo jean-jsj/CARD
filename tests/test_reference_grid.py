@@ -12,8 +12,8 @@ import pytest
 pytest.importorskip("statsmodels")
 pytest.importorskip("sklearn")
 
-from baselines import loglog_grid, probit_shares, probit_simulation, text_distance
-from baselines.run_reference_grid import VARIANTS, run_cell
+from card_metrics.baselines import loglog_grid, probit_shares, probit_simulation, text_distance
+from card_metrics.baselines.run_reference_grid import VARIANTS, run_cell
 
 PRODUCTS = pd.DataFrame(
     {

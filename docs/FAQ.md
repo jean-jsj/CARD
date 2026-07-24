@@ -11,7 +11,7 @@ Kilts Center under its academic terms.
 **How big is the download?**
 Each full cell is roughly 1 GB (most of it the counterfactual-scenario context
 and truth). Start with the ~18 MB `dev_mini` slices instead
-(`python examples/download_data.py --cell complex_log_log_endogenous_seed001 --mini`)
+(`card download --cell complex_log_log_endogenous_seed001 --mini`)
 — every notebook runs on them. Score real entries on the full cells.
 
 **Why does the dev cell ship its own answer key (`hidden/`)?**
@@ -36,12 +36,12 @@ One number per demand family: |own-price bias| on the flagship +10% scenario
 in the endogeneity-on cell (0 = unbiased). The sales forecast error is
 displayed beside it and never ranked; the substitution error and the full
 elasticity scorecard are reported unranked. See the README's leaderboard
-section and [metrics/SUBMISSION_FORMAT.md](../metrics/SUBMISSION_FORMAT.md).
+section and [docs/SUBMISSION_FORMAT.md](SUBMISSION_FORMAT.md).
 
 **Why is the generator withheld? How do I know the data won't change?**
 Publishing the generator would let anyone regenerate the hidden truth for the
 eval seeds. The frozen source is committed to by SHA-256 in
-[GENERATOR_COMMITMENT.md](../GENERATOR_COMMITMENT.md) and will be released to
+[GENERATOR_COMMITMENT.md](GENERATOR_COMMITMENT.md) and will be released to
 match that hash after the evaluation phase; every released file carries its
 own hash in the per-cell `release/MANIFEST.json`. The construction is
 documented at the equation level in the paper appendix.
@@ -63,10 +63,9 @@ Because you never observe the true baseline sales. Submit
 identical across submissions and absorbed into the magnitude metrics.
 
 **What Python do I need?**
-Python ≥ 3.9 with numpy + pandas for scoring (`pip install -e .`). The
-reference baselines add statsmodels + scikit-learn
-(`pip install -e ".[baselines]"`). Notebooks additionally use matplotlib and
-huggingface_hub.
+Python ≥ 3.9. `pip install -e ".[data]"` covers scoring and downloads; the
+reference baselines add `".[baselines]"` (statsmodels + scikit-learn);
+notebooks also use matplotlib.
 
 **Something looks wrong in the data or scorer.**
 Open a GitHub issue. Scoring math is frozen between minor versions — behavior

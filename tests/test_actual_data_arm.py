@@ -14,14 +14,14 @@ import pandas as pd
 import pytest
 
 # The import itself checks the public surface: if any symbol is absent the module fails to import and the whole file errors loudly.
-from metrics.actual_data import (  # noqa: E402
+from card_metrics.actual_data import (  # noqa: E402
     ACTUAL_ARM,
     SWEEP_CONTEXT_COLUMNS,
     ActualDataNotAvailable,
     build_fixture_actual_cell,  # noqa: F401  (imported to assert the surface exists)
     load_actual_cell,
 )
-from metrics.evaluate_submission import (  # noqa: E402
+from card_metrics.evaluate_submission import (  # noqa: E402
     ACTUAL_FORECAST_FILE,
     ACTUAL_VALIDITY_FILE,
     evaluate_prebuilt,
@@ -357,10 +357,10 @@ def test_arm_routing_evaluate_prebuilt(tmp_path):
 
 
 def test_leaderboard_actual_columns_per_arm(tmp_path):
-    leaderboard = pytest.importorskip("metrics.leaderboard")
+    leaderboard = pytest.importorskip("card_metrics.leaderboard")
     leaderboard_rows = getattr(leaderboard, "leaderboard_rows", None)
     if leaderboard_rows is None:
-        pytest.xfail("leaderboard_rows missing from metrics.leaderboard")
+        pytest.xfail("leaderboard_rows missing from card_metrics.leaderboard")
 
     cell = _make_fixture_cell()
     sub_dir = _write_submission(tmp_path, cell, with_forecast=True)

@@ -1,26 +1,22 @@
-"""Build and score a deliberately naive baseline submission for one cell.
+"""Build and score a deliberately naive submission for one cell.
 
-Demonstrates the three submission files end to end (you should beat this easily):
-
-* sales forecasting — per (product, store), predict the mean units over the last 8 training weeks, for every holdout (product, store, week). The training panel records positive-sales rows only, so this simple mean ignores zero-sales weeks — one of many things a real model should do better.
-* elasticity recovery — the all-zeros J x J elasticity matrix (the no-information value).
-* counterfactual prediction — predicted_delta_units = 0 everywhere ("prices don't matter").
+Forecast = recent average sales, elasticities = 0, demand changes = 0.
+You should beat this easily.
 
 Usage:
-    python examples/quickstart.py --cell-dir benchmark/dev/<cell_slug>
+    python examples/quickstart.py --cell-dir benchmark/dev_mini/<cell_slug>
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 from itertools import product as iproduct
 from pathlib import Path
 
 import pandas as pd
-
-LAST_N_TRAIN_WEEKS = 8
 
 
 def build_submission(cell_dir: Path, out_dir: Path) -> None:
@@ -31,32 +27,26 @@ def build_submission(cell_dir: Path, out_dir: Path) -> None:
     holdout = pd.read_csv(public / "transactions_holdout_context_public.csv")
     products = pd.read_csv(public / "products_public.csv")
 
-    # sales forecasting: mean units per (product, store) over the last N training weeks.
-    recent = train[train["week"] > train["week"].max() - LAST_N_TRAIN_WEEKS]
-    mean_units = (
-        recent.groupby(["product_id", "store_id"])["units"].mean().rename("predicted_units")
-    )
-    l1 = holdout[["product_id", "store_id", "week"]].merge(
+    recent = train[train["week"] > train["week"].max() - 8]
+    mean_units = recent.groupby(["product_id", "store_id"])["units"].mean().rename("predicted_units")
+    forecast = holdout[["product_id", "store_id", "week"]].merge(
         mean_units, on=["product_id", "store_id"], how="left"
-    )
-    l1["predicted_units"] = l1["predicted_units"].fillna(0.0)
-    l1.to_csv(out_dir / "forecast_predictions.csv", index=False)
+    ).fillna({"predicted_units": 0.0})
+    forecast.to_csv(out_dir / "forecast_predictions.csv", index=False)
 
-    # elasticity recovery: all-zeros elasticity matrix (diagonal included).
     ids = products["product_id"].tolist()
-    l2 = pd.DataFrame(
+    pd.DataFrame(
         [(j, i, 0.0) for j, i in iproduct(ids, ids)],
         columns=["priced_product_id", "affected_product_id", "elasticity"],
-    )
-    l2.to_csv(out_dir / "elasticity_matrix.csv", index=False)
+    ).to_csv(out_dir / "elasticity_matrix.csv", index=False)
 
-    # counterfactual prediction: zero demand change for every sweep-context row.
     sweep = pd.read_csv(
         public / "counterfactual_sweep_context_public.csv",
         usecols=["intervention_id", "product_id", "store_id", "week"],
     )
-    l3 = sweep.drop_duplicates().assign(predicted_delta_units=0.0)
-    l3.to_csv(out_dir / "counterfactual_deltas.csv", index=False)
+    sweep.drop_duplicates().assign(predicted_delta_units=0.0).to_csv(
+        out_dir / "counterfactual_deltas.csv", index=False
+    )
 
 
 def main() -> int:
@@ -68,33 +58,28 @@ def main() -> int:
 
     cell_dir = args.cell_dir
     if not (cell_dir / "public").is_dir():
-        sys.exit(f"{cell_dir} has no public/ directory — run examples/download_data.py first.")
+        sys.exit(f"{cell_dir} has no public/ directory — run `card download` first.")
     if not (cell_dir / "hidden").is_dir():
-        sys.exit(
-            f"{cell_dir} has no hidden/ scoring truth — local scoring works on the dev seed only."
-        )
+        sys.exit(f"{cell_dir} has no hidden/ truth — local scoring works on the dev seed only.")
 
-    sub_dir = args.submission_dir or Path("submissions/naive_baseline") / cell_dir.name
+    sub_dir = args.submission_dir or Path("submissions_local/naive") / cell_dir.name
     out = args.out or Path("scores") / f"{cell_dir.name}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
 
     build_submission(cell_dir, sub_dir)
-    print(f"naive baseline written to {sub_dir}; scoring...")
-    return subprocess.call(
-        [
-            sys.executable,
-            "-m",
-            "metrics.evaluate_submission",
-            "--cell-dir",
-            str(cell_dir),
-            "--submission-dir",
-            str(sub_dir),
-            "--submission-name",
-            "naive_baseline",
-            "--out",
-            str(out),
-        ]
+    code = subprocess.call(
+        [sys.executable, "-m", "card_metrics.evaluate_submission",
+         "--cell-dir", str(cell_dir), "--submission-dir", str(sub_dir),
+         "--submission-name", "naive", "--out", str(out)]
     )
+    if code:
+        return code
+
+    score = json.loads(out.read_text())
+    headline = score["counterfactual_prediction"]["headline"]
+    print(f"own-price bias  {headline['own_price']['own_price_wmpe']:+.2f}   (ranked headline; 0 = unbiased)")
+    print(f"forecast error   {score['sales_forecasting']['demand_wmape']:.2f}   (displayed, never ranked)")
+    return 0
 
 
 if __name__ == "__main__":

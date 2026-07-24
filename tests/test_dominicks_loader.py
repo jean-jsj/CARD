@@ -1,4 +1,4 @@
-"""Unit tests for the Dominick's movement-file loader (metrics.actual_data).
+"""Unit tests for the Dominick's movement-file loader (card_metrics.actual_data).
 
 Hermetic: a tiny synthetic wtti.csv fixture in Dominick's raw schema — no real download. Covers the documented hygiene (OK/price filters), bundle-price arithmetic, promo flag, cost proxy, the 80%-revenue universe rule, and the train/held-out split.
 """
@@ -10,7 +10,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from metrics.actual_data import (
+from card_metrics.actual_data import (
     ACTUAL_ARM,
     ActualDataNotAvailable,
     DEFAULT_HOLDOUT_WEEKS,

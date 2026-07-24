@@ -1,10 +1,10 @@
 """Score one submission directory against one benchmark cell directory.
 
 Usage:
-    python3 -m metrics.evaluate_submission \
+    python3 -m card_metrics.evaluate_submission \
         --cell-dir outputs/complex_log_log_endogenous_seed001 \ --submission-dir my_submission/ \ [--out scores.json] [--submission-name my_model]
 
-Tasks whose file is absent from the submission directory are reported as `not_submitted`. See metrics/SUBMISSION_FORMAT.md for the file contracts.
+Tasks whose file is absent from the submission directory are reported as `not_submitted`. See docs/SUBMISSION_FORMAT.md for the file contracts.
 """
 
 from __future__ import annotations
@@ -17,17 +17,17 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from causal_demand_metrics.headline_decomposition import (
+from card_metrics.headline_decomposition import (
     decomposed_headline,
     focal_from_context,
 )
-from causal_demand_metrics.sales_forecasting import (
+from card_metrics.sales_forecasting import (
     build_demand_truth,
     demand_prediction_scores,
     revenue_weights,
 )
-from causal_demand_metrics.elasticity import elasticity_scores
-from causal_demand_metrics.validity_checks import (
+from card_metrics.elasticity import elasticity_scores
+from card_metrics.validity_checks import (
     FACIAL_TISSUE_OWN_BAND,
     coherence_gate,
     own_elasticity_range_coverage,
@@ -43,7 +43,7 @@ COUNTERFACTUAL_FILE = "counterfactual_deltas.csv"
 ACTUAL_FORECAST_FILE = "actual_forecast_predictions.csv"
 ACTUAL_VALIDITY_FILE = "actual_validity_deltas.csv"
 
-# Required columns per submission CSV — validated up front so a malformed file yields a clear, participant-facing message instead of a raw pandas KeyError deep inside a pivot/merge. (See metrics/SUBMISSION_FORMAT.md.)
+# Required columns per submission CSV — validated up front so a malformed file yields a clear, participant-facing message instead of a raw pandas KeyError deep inside a pivot/merge. (See docs/SUBMISSION_FORMAT.md.)
 FORECAST_COLUMNS = ["product_id", "store_id", "week", "predicted_units"]
 ELASTICITY_COLUMNS = ["affected_product_id", "priced_product_id", "elasticity"]
 COUNTERFACTUAL_COLUMNS = [
@@ -77,7 +77,7 @@ def _read_submission(path: Path, required: list[str], task_label: str) -> pd.Dat
         raise SubmissionFormatError(
             f"{task_label}: {path.name} is missing required column(s): "
             f"{', '.join(missing)}. Found: [{', '.join(map(str, df.columns))}]. "
-            f"Expected: [{', '.join(required)}]. See metrics/SUBMISSION_FORMAT.md."
+            f"Expected: [{', '.join(required)}]. See docs/SUBMISSION_FORMAT.md."
         )
     return df
 
@@ -225,7 +225,7 @@ def score_counterfactual(
     hl = by_id.get(HEADLINE_INTERVENTION) or {}
     return {
         "metric": "counterfactual_wmpe_wape_pair",
-        "spec_reference": "metrics/SUBMISSION_FORMAT.md (counterfactual prediction headline)",
+        "spec_reference": "docs/SUBMISSION_FORMAT.md (counterfactual prediction headline)",
         "headline_components": ["own_price_wmpe", "substitution_wape"],
         "headline": {
             "scenario": HEADLINE_INTERVENTION,
@@ -265,7 +265,7 @@ def _weighted_fraction(pairs: list[tuple[float | None, float | None]]) -> float 
 def score_validity(cell: dict[str, Any], submission_path: Path) -> dict[str, Any]:
     """Actual-data-arm validity scoring.
 
-    Pure wiring around the ``causal_demand_metrics.validity_checks`` bundle. Consumes ONLY the public ``cell["sweep_context"]`` + the submitted Δq (ACTUAL_VALIDITY_FILE); reads NO hidden truth, NO ``cell_dir``, NO ``hidden/`` file. For each focal in the full own-price sweep (every product moved once, BOTH signs) it runs the label-free own-sign / substitution-sign / monotonicity checks, and derives an own-elasticity range coverage from the submitted Δq (NO elasticity file) over the full J-diagonal, scored against the explicit tissue band.
+    Pure wiring around the ``card_metrics.validity_checks`` bundle. Consumes ONLY the public ``cell["sweep_context"]`` + the submitted Δq (ACTUAL_VALIDITY_FILE); reads NO hidden truth, NO ``cell_dir``, NO ``hidden/`` file. For each focal in the full own-price sweep (every product moved once, BOTH signs) it runs the label-free own-sign / substitution-sign / monotonicity checks, and derives an own-elasticity range coverage from the submitted Δq (NO elasticity file) over the full J-diagonal, scored against the explicit tissue band.
     """
     deltas = _read_submission(submission_path, COUNTERFACTUAL_COLUMNS, "validity checks (actual arm)")
     context = cell["sweep_context"]
@@ -407,7 +407,7 @@ def _result_header(cell: dict[str, Any], cell_slug: str, cell_dir: Any) -> dict[
         "family": cell["family"],
         "evaluation_weeks": cell["eval_weeks"],
         "headline_statistic": "pooled_own_wmpe_substitution_wape",
-        "spec_reference": "metrics/SUBMISSION_FORMAT.md",
+        "spec_reference": "docs/SUBMISSION_FORMAT.md",
     }
 
 
@@ -522,7 +522,7 @@ def main() -> None:
     else:
         print(payload)
     if args.reference_scores is not None:
-        from metrics.leaderboard import leaderboard_rows
+        from card_metrics.leaderboard import leaderboard_rows
 
         reference_payloads = [
             json.loads(path.read_text())

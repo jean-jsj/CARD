@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from causal_demand_metrics.validity_checks import (
+from card_metrics.validity_checks import (
     coherence_gate,
     cross_elasticity_plausibility,
     own_elasticity_range_coverage,

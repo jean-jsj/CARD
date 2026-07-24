@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from baselines import loglog_grid, probit_simulation
+from card_metrics.baselines import loglog_grid, probit_simulation
 
 VARIANTS: dict[str, dict[str, bool]] = {
     "no_iv_no_text": {"use_iv": False, "use_text": False},

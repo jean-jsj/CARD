@@ -3,8 +3,8 @@
 Scans submissions/<model>/scores/<cell>.json for every non-reference entry and
 rewrites:
 
-  leaderboard/leaderboard_log_log.svg           (paired endo-on / endo-off scatter)
-  leaderboard/leaderboard_covariance_probit.svg
+  docs/leaderboard/leaderboard_log_log.svg           (paired endo-on / endo-off scatter)
+  docs/leaderboard/leaderboard_covariance_probit.svg
   the README.md block between the LEADERBOARD markers (dual-rank table)
 
 Ranking rule: within each demand family, entries are ranked by |own-price
@@ -16,7 +16,7 @@ Participant report mode: --report <model> writes <model>_report.html — the
 same two plots with every other entry in gray and <model> highlighted, plus
 the table with <model>'s rows marked. All remaining metrics (including the
 substitution WAPE and the per-scenario matrix) ship as CSVs via
-`python -m metrics.diagnostics`.
+`python -m card_metrics.diagnostics`.
 
 Usage:
   python scripts/make_leaderboard.py                 # refresh README + SVGs
@@ -219,7 +219,7 @@ weeks; lower is better.</p>
 <th>discrete-choice: own-price bias (rank)</th><th>forecast error</th></tr>{html_rows}</table>
 <p>Every remaining metric, including the substitution error (WAPE), the full
 elasticity-recovery scorecard, and the per-scenario counterfactual matrix, is
-in the CSVs produced by <code>python -m metrics.diagnostics</code> over your
+in the CSVs produced by <code>python -m card_metrics.diagnostics</code> over your
 scores.json files.</p>
 """)
 
@@ -237,12 +237,12 @@ def main() -> None:
         print(f"report -> {out}")
         return
 
-    lb = ROOT / "leaderboard"
+    lb = ROOT / "docs" / "leaderboard"
     lb.mkdir(exist_ok=True)
     for fam, fl in FAMILIES:
         (lb / f"leaderboard_{fam}.svg").write_text(scatter_svg(entries, fam, fl, None))
     update_readme(rank_table(entries, None))
-    print(f"{len(entries)} entries -> leaderboard/ + README table")
+    print(f"{len(entries)} entries -> docs/leaderboard/ + README table")
 
 
 if __name__ == "__main__":

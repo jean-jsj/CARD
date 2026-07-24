@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from metrics.leaderboard import aggregate_seeds, leaderboard_rows, to_markdown
+from card_metrics.leaderboard import aggregate_seeds, leaderboard_rows, to_markdown
 
 
 def _scores(
@@ -103,7 +103,7 @@ def test_markdown_render_includes_spread():
 
 
 def test_read_submission_rejects_missing_columns(tmp_path):
-    from metrics.evaluate_submission import (
+    from card_metrics.evaluate_submission import (
         COUNTERFACTUAL_COLUMNS,
         SubmissionFormatError,
         _read_submission,
@@ -120,7 +120,7 @@ def test_read_submission_rejects_missing_columns(tmp_path):
 
 
 def test_read_submission_accepts_valid(tmp_path):
-    from metrics.evaluate_submission import ELASTICITY_COLUMNS, _read_submission
+    from card_metrics.evaluate_submission import ELASTICITY_COLUMNS, _read_submission
 
     p = tmp_path / "elasticity_matrix.csv"
     p.write_text("affected_product_id,priced_product_id,elasticity\nP1,P2,0.3\n")
@@ -129,7 +129,7 @@ def test_read_submission_accepts_valid(tmp_path):
 
 
 def test_diagnostics_tables_flatten_scores():
-    from metrics.diagnostics import build_tables
+    from card_metrics.diagnostics import build_tables
 
     scores = {
         "cell_slug": "complex_log_log_endogenous_seed001",

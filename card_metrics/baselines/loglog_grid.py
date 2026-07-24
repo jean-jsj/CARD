@@ -1,28 +1,13 @@
 """Log-log family reference grid: 2x2 (instrument x text) Poisson estimators.
 
-All four corners share ONE functional form — a per-product Poisson (PPML)
-count model matched to the log-log DGP's demand equation:
-
-    E[units_jst] = exp( alpha_js + tau_t + beta_j * log p_jst + gamma_j * npi_jst )
-
-where ``npi_jst`` is a weighted neighbor log-price index built from a product
-distance matrix. The corners differ ONLY along the two axes:
-
-- instrument off/on: the IV corners add a control-function residual (first
-  stage: log price on ``supply_cost_proxy`` with the same fixed effects).
-- text off/on: neighbor weights from brand membership only vs from TF-IDF
-  distances on the released ``product_text``.
-
-Estimation is two-stage per product. Stage 1 recovers (beta, gamma) with full
-store + week fixed effects on carried stores; there is NO promotion control, because
-promotions move demand through the price cut itself and a promo regressor
-absorbs genuine price variation. Stage 2 freezes (beta, gamma) and fits the
-forecasting surface — per-(product, store) level offsets plus week-of-year
-harmonics that, unlike week fixed effects, extrapolate to holdout weeks.
-
-The count (PPML) route is deliberate: the observation layer is ~89% zeros and
-log-OLS attenuates every method toward the same substitution error; Poisson
-keeps the corners separable.
+All four corners share one form — a per-product Poisson (PPML) count model
+with store + week fixed effects, an own log-price term, and a weighted
+neighbor log-price index. The corners differ only along the two axes: IV
+corners add a control-function residual (first stage: log price on
+``supply_cost_proxy``); text corners weight neighbors by TF-IDF text
+distances instead of brand membership. Stage 2 freezes the price response
+and fits per-(product, store) levels plus seasonal harmonics that, unlike
+week fixed effects, extrapolate to holdout weeks.
 """
 
 from __future__ import annotations
@@ -31,7 +16,7 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 
-from baselines.text_distance import (
+from card_metrics.baselines.text_distance import (
     brand_distance_matrix,
     kernel_weights,
     rank_normalize,

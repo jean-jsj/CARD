@@ -9,7 +9,7 @@ instruments x with/without the product text). This corner uses the product text 
   value of each input rather than model misspecification.
 - **Data used.** `public/` files only. Text corners read `product_text`.
 - **Scores.** `scores/<cell>.json` — dev seed 1, scored with this repository's
-  harness (`python -m metrics.evaluate_all`).
+  harness (`python -m card_metrics.evaluate_all`).
 - **Predictions.** Full submission-format CSVs are hosted with the dataset
   (Hugging Face `jean-jsj/CARD`, `reference/no_iv_text/`) — the per-cell counterfactual
   prediction files are too large for a git repository.

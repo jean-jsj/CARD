@@ -5,8 +5,8 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "card-metrics"
 version = "0.5.0.dev0"
-description = "Scoring math for CARD (Causal Recovery of Demand), a causal-demand benchmark (demand WMAPE/WMPE, elasticity-matrix scoring, decomposed counterfactual headline, label-free validity checks)."
-readme = { file = "causal_demand_metrics/README.md", content-type = "text/markdown" }
+description = "Scoring and reference baselines for CARD (Causal Recovery of Demand), a causal-demand benchmark."
+readme = { file = "README.md", content-type = "text/markdown" }
 license = { text = "Apache-2.0" }
 requires-python = ">=3.9"
 dependencies = [
@@ -19,12 +19,16 @@ baselines = [
     "statsmodels>=0.13",
     "scikit-learn>=1.1",
 ]
+data = [
+    "huggingface_hub",
+]
+
+[project.scripts]
+card = "card_metrics.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/jean-jsj/CARD"
 Dataset = "https://huggingface.co/datasets/jean-jsj/CARD"
 
 [tool.setuptools]
-# Only the metrics-math package is installable. The metrics/ harness and
-# examples/ are used from a repo checkout.
-packages = ["causal_demand_metrics"]
+packages = ["card_metrics", "card_metrics.baselines"]

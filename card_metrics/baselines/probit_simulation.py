@@ -1,28 +1,12 @@
 """Simulation-based reference estimator for the discrete-choice family.
 
-Reproduces the covariance-probit family's own generating mechanics from
-public data and answers every scored task by RE-SIMULATING the choice
-process:
-
-1. Error covariance ``Sigma = omega * K + (1 - omega) * I`` with the family's
-   Gaussian kernel ``K = exp(-r^2 / (2 theta^2))`` on rank-normalized public
-   text distances (text corners) or the identity (text-blind corners).
-2. Per-store mean utilities ``delta_js`` recovered by simulated share
-   inversion: iterate ``delta <- delta + log(observed share) - log(simulated
-   share)`` until the argmax choice probabilities under ``Sigma`` reproduce
-   each store's observed average shares (the probit analogue of share
-   inversion; the contraction uses one common panel of correlated draws).
-3. A utility-scale price coefficient calibrated so the MODEL'S OWN simulated
-   share-price semi-elasticity at the category level equals the reduced-form
-   estimate — OLS for naive corners, cost-IV for instrumented corners. The
-   instrument axis therefore enters through the calibration target, while the
-   response curvature comes from the probit itself rather than a log-linear
-   approximation.
-4. Counterfactuals by re-simulating the argmax at baseline and intervention
-   prices with common random numbers, scaled by the incidence margin
-   ``exp(rho * dCV)`` in the generating process's own closed form.
-
-Only the public cell surface is consumed.
+Rebuilds the covariance-probit mechanics from public data and answers every
+scored task by re-simulating the choice process: (1) error covariance from a
+Gaussian kernel on rank-normalized text distances (identity when text-blind);
+(2) per-store mean utilities by simulated share inversion; (3) a price-utility
+scale calibrated to the reduced-form share regression (OLS naive, IV
+instrumented); (4) counterfactuals by re-simulating choices with common random
+numbers, scaled by the incidence margin ``exp(rho * dCV)``.
 """
 
 from __future__ import annotations
@@ -30,14 +14,14 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from baselines.probit_shares import (
+from card_metrics.baselines.probit_shares import (
     OMEGA_MIX,
     RANK_BANDWIDTH,
     SEASON_PERIOD_WEEKS,
     fit_pooled_clipped,
     fit_share_price_sensitivity,
 )
-from baselines.text_distance import rank_normalize, text_distance_matrix
+from card_metrics.baselines.text_distance import rank_normalize, text_distance_matrix
 
 N_DRAWS = 4000
 INVERSION_ITERS = 250

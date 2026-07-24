@@ -1,7 +1,7 @@
 """Assemble scored models into a leaderboard table.
 
 Usage:
-    python3 -m metrics.leaderboard scores_a.json scores_b.json ... \
+    python3 -m card_metrics.leaderboard scores_a.json scores_b.json ... \
         [--out leaderboard.csv] [--format table|markdown|csv] [--aggregate-seeds]
 
 Each input is an `evaluate_submission` output. Rows are ranked (within each cell-type) by `|own-price bias|` ASCENDING — closest to zero first (the counterfactual headline own axis). Own-price bias (signed, for direction) and substitution error are reported as the PAIR, both from the single scenario `sweep_single_share_highest_plus10`; the forecasting and elasticity headline numbers ride along as columns. The README's main arena is the two complex endogeneity-on cell-types.
@@ -42,10 +42,13 @@ def leaderboard_rows(score_payloads: list[dict[str, Any]]) -> pd.DataFrame:
         forecasting = scores.get("sales_forecasting", {})
         elasticity = scores.get("elasticity_recovery", {})
         own = elasticity.get("own_price") or {}
-        # Actual-data arm. On synthetic rows the `data_arm` tag is absent → defaults to "synthetic", and the `validity_checks_actual` block is absent → every `.get` chain below degrades to `None`. The four L4 fractions are a DIAGNOSTIC PANEL reported alongside — NOT combined into one scalar, NOT ranked. L4 leaf keys match causal_demand_metrics/validity_checks.py: `frac_correct_sign` (own_price_sign_validity), `frac_redistribution_mass_correct` (substitution_sign_validity), `frac_in_band` (own_elasticity_range_ coverage), `frac_consistent` (sweep_monotonicity).
+        # Actual-arm blocks are absent on synthetic rows, so every .get chain
+        # degrades to None. The validity fractions are a diagnostic panel:
+        # never combined into one scalar, never ranked.
         data_arm = scores.get("data_arm", "synthetic")
         l4 = scores.get("validity_checks_actual") or {}
-        # Sales forecasting runs on BOTH arms: keep the actual-arm forecast in a SEPARATE column from the synthetic-arm forecast so the two arms never mix in one column. `sales_forecasting` is the same block name / leaf keys on both arms; populate the actual columns ONLY for actual rows.
+        # Forecasting runs on both arms; the actual-arm forecast keeps its own
+        # column so the two arms never mix.
         is_actual = data_arm == "actual"
         rows.append(
             {

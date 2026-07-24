@@ -6,12 +6,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from causal_demand_metrics.sales_forecasting import (
+from card_metrics.sales_forecasting import (
     build_demand_truth,
     demand_prediction_scores,
     revenue_weights,
 )
-from causal_demand_metrics.elasticity import (
+from card_metrics.elasticity import (
     elasticity_scores,
     elasticity_truth_log_log,
 )

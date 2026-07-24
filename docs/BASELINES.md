@@ -4,7 +4,7 @@ The four reference models that anchor the paper's results: for each demand
 family, a 2x2 grid crossing **instrument use** (off/on) with **product-text
 use** (off/on). Every estimator consumes only a cell's `public/` files and
 writes the three submission CSVs of
-[`metrics/SUBMISSION_FORMAT.md`](../metrics/SUBMISSION_FORMAT.md), so each
+[`docs/SUBMISSION_FORMAT.md`](SUBMISSION_FORMAT.md), so each
 variant directory is a complete, scoreable submission.
 
 | Variant | Instruments | Product text |
@@ -38,13 +38,13 @@ statsmodels + scikit-learn).
 
 ```bash
 # all four corners of one cell (or drop --cells to run every downloaded cell)
-python -m baselines.run_reference_grid \
+python -m card_metrics.baselines.run_reference_grid \
     --cells-root benchmark/dev \
     --cells complex_log_log_endogenous_seed001 \
     --out-root reference_out
 
 # score a corner
-python -m metrics.evaluate_submission \
+python -m card_metrics.evaluate_submission \
     --cell-dir benchmark/dev/complex_log_log_endogenous_seed001 \
     --submission-dir reference_out/iv_text/complex_log_log_endogenous_seed001 \
     --submission-name iv_text --out scores/iv_text.json
@@ -58,5 +58,5 @@ corners take minutes per cell; the probit corners are slower (share inversion +
 simulation, tens of minutes per cell).
 
 The four `reference_*` entries under [`submissions/`](../submissions/) hold the
-shipped full-cell scores, and [docs/reference_results.html](../docs/reference_results.html)
+shipped full-cell scores, and [docs/reference_results.html](reference_results.html)
 is a browsable explorer. The reference models are not leaderboard entries.

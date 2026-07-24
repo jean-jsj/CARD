@@ -1,14 +1,14 @@
 """Score one submission tree against every available benchmark cell.
 
 Usage:
-    python3 -m metrics.evaluate_all \
+    python3 -m card_metrics.evaluate_all \
         --cells-root benchmark/dev/ \ --submissions-root my_model/ \ [--submission-name my_model] [--out-dir scores/] \ [--cells 'complex_*_endogenous*' ...] \ [--reference-scores benchmark/reference_scores/] \ [--dump-values-dir dumps/] [--format table|markdown]
 
-Multi-cell convenience wrapper around `metrics.evaluate_submission`: discovers cell directories under `--cells-root`, pairs each with the submission subdirectory of the same cell slug (`<submissions-root>/<cell_slug>/`, the layout SUBMISSION_FORMAT.md prescribes), scores every pair, writes one `scores.json` per cell into `--out-dir`, and prints a combined per-cell-type leaderboard at the end.
+Multi-cell convenience wrapper around `card_metrics.evaluate_submission`: discovers cell directories under `--cells-root`, pairs each with the submission subdirectory of the same cell slug (`<submissions-root>/<cell_slug>/`, the layout SUBMISSION_FORMAT.md prescribes), scores every pair, writes one `scores.json` per cell into `--out-dir`, and prints a combined per-cell-type leaderboard at the end.
 
 Cells whose hidden truth is absent (the eval seeds in the release packaging — truth is maintainer-only) are skipped with a notice, as are cells without a matching submission subdirectory. A scoring error in one cell does not stop the others; it is reported and reflected in the exit code.
 
-Actual-data arm. SYNTHETIC cells score sales forecasting/2/3 and are the ranked leaderboard. The ACTUAL-data arm (real POS panel) scores sales forecasting + validity checks only — it is PUBLIC-ONLY by design (no hidden truth EVER exists on real data), so it must NOT be caught by the "hidden truth absent → skip" branch that withholds eval-seed synthetic cells. Because an actual cell is a PRE-BUILT dict (`metrics.actual_data.load_actual_cell(data_root)`), not a synthetic cell dir discoverable under `--cells-root`, it is routed through `evaluate_prebuilt` from a separate `--actual-data-root`, NOT through `discover_cells`. The actual arm is a DIAGNOSTIC PANEL in its own `(cell_type, data_arm)` leaderboard partition — never ranked into the synthetic own-price-WMPE headline.
+Actual-data arm. SYNTHETIC cells score sales forecasting/2/3 and are the ranked leaderboard. The ACTUAL-data arm (real POS panel) scores sales forecasting + validity checks only — it is PUBLIC-ONLY by design (no hidden truth EVER exists on real data), so it must NOT be caught by the "hidden truth absent → skip" branch that withholds eval-seed synthetic cells. Because an actual cell is a PRE-BUILT dict (`card_metrics.actual_data.load_actual_cell(data_root)`), not a synthetic cell dir discoverable under `--cells-root`, it is routed through `evaluate_prebuilt` from a separate `--actual-data-root`, NOT through `discover_cells`. The actual arm is a DIAGNOSTIC PANEL in its own `(cell_type, data_arm)` leaderboard partition — never ranked into the synthetic own-price-WMPE headline.
 """
 
 from __future__ import annotations
@@ -20,9 +20,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from metrics.actual_data import ActualDataNotAvailable, load_actual_cell
-from metrics.evaluate_submission import evaluate, evaluate_prebuilt
-from metrics.leaderboard import leaderboard_rows, to_markdown
+from card_metrics.actual_data import ActualDataNotAvailable, load_actual_cell
+from card_metrics.evaluate_submission import evaluate, evaluate_prebuilt
+from card_metrics.leaderboard import leaderboard_rows, to_markdown
 
 
 def discover_cells(cells_root: Path, patterns: list[str] | None) -> list[Path]:
