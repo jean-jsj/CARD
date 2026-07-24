@@ -4,7 +4,7 @@
 
 1. Build your model on the `public/` files only — `hidden/` is scoring truth, never model input. Score locally on the dev seed with `python -m card_metrics.evaluate_all`.
 2. Open a PR adding a directory under `submissions/<your-model-name>/` containing:
-   - your prediction CSVs for each cell you enter (see [`docs/SUBMISSION_FORMAT.md`](docs/SUBMISSION_FORMAT.md)), or a download link if they exceed repo-friendly size;
+   - your prediction CSVs for each cell you enter (see [`docs/SUBMISSION_FORMAT.md`](../docs/SUBMISSION_FORMAT.md)), or a download link if they exceed repo-friendly size;
    - `entry.md`: model description, data used (which public files, text used or not), compute, and a contact.
 3. The maintainer runs your predictions against the private eval-seed truth and updates the README leaderboard (mean ± spread across eval seeds). Dev numbers are self-reported; eval numbers are maintainer-verified.
 

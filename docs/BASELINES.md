@@ -18,17 +18,17 @@ Each variant implements the cell's own demand system, fit from public files
 alone, so the grid measures the value of each input with the functional form
 held correct:
 
-- **log-log cells** ([`loglog_grid.py`](loglog_grid.py)): per-product Poisson
+- **log-log cells** ([`loglog_grid.py`](../card_metrics/baselines/loglog_grid.py)): per-product Poisson
   (PPML) count models with store + week fixed effects; the IV corners add a
   control-function residual whose first stage regresses log price on
   `supply_cost_proxy`; the text corners weight a neighbor log-price index by
-  TF-IDF text distances ([`text_distance.py`](text_distance.py)) instead of
+  TF-IDF text distances ([`text_distance.py`](../card_metrics/baselines/text_distance.py)) instead of
   brand membership.
-- **discrete-choice cells** ([`probit_simulation.py`](probit_simulation.py)):
+- **discrete-choice cells** ([`probit_simulation.py`](../card_metrics/baselines/probit_simulation.py)):
   the covariance-probit mechanics re-simulated from public data — share
   inversion under a text-kernel error covariance, a price-utility scale
   calibrated to the reduced-form share regression
-  ([`probit_shares.py`](probit_shares.py); OLS naive / IV instrumented), and
+  ([`probit_shares.py`](../card_metrics/baselines/probit_shares.py); OLS naive / IV instrumented), and
   counterfactuals by re-simulating choices with common random numbers.
 
 ## Run
